@@ -751,6 +751,131 @@ document.getElementById('exportExcelBtn').addEventListener('click', () => {
   XLSX.writeFile(wb, `식권정산_${orgLabelForFile}_${m.monthSel}.xlsx`);
 });
 
+/* ============ 밥장: 팀원 식권 수정 ============ */
+function openMemberEditModal() {
+  const m = window._adminMatrix;
+  const members = (m && m.members) || [];
+  if (members.length === 0) { alert('이번 달 기록이 있는 팀원이 없어요.'); return; }
+
+  const select = document.getElementById('memberEditSelect');
+  select.innerHTML = members.map(name => `<option value="${name}">${name}</option>`).join('');
+
+  document.getElementById('memberEditModalOverlay').style.display = 'flex';
+  renderMemberEntryList();
+}
+function closeMemberEditModal() {
+  document.getElementById('memberEditModalOverlay').style.display = 'none';
+}
+document.getElementById('memberEditOpenBtn').addEventListener('click', openMemberEditModal);
+document.getElementById('memberEditCloseBtn').addEventListener('click', closeMemberEditModal);
+document.getElementById('memberEditModalOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'memberEditModalOverlay') closeMemberEditModal();
+});
+document.getElementById('memberEditSelect').addEventListener('change', renderMemberEntryList);
+
+function renderMemberEntryList() {
+  const memberName = document.getElementById('memberEditSelect').value;
+  const monthSel = document.getElementById('adminMonthSelect').value;
+  const wrap = document.getElementById('memberEntryList');
+
+  const entries = teamAllEntries
+    .filter(e => e.member === memberName && e.date.startsWith(monthSel))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (entries.length === 0) {
+    wrap.innerHTML = '<p class="muted" style="padding:8px 0;">이번 달 입력된 기록이 없습니다.</p>';
+    return;
+  }
+
+  wrap.innerHTML = entries.map(e => {
+    const rName = e.unknown ? '🤷 어디였는지 기억 안남' : restaurantLabel(e.restaurantId);
+    const tag = e.special ? '<span class="tag">특별식권</span>' : '';
+    return `<div class="entry-row">
+      <span class="r-name">${e.date} · ${rName}${tag}</span>
+      <span>${e.count}장</span>
+      <span class="actions"><button data-id="${e.id}" class="member-entry-edit-btn">수정</button></span>
+    </div>`;
+  }).join('');
+
+  wrap.querySelectorAll('.member-entry-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const entry = entries.find(e => e.id === btn.dataset.id);
+      if (entry) openMemberEntryEditModal(entry);
+    });
+  });
+}
+
+let memberEditTargetEntry = null;
+
+function openMemberEntryEditModal(entry) {
+  memberEditTargetEntry = entry;
+  const rName = entry.unknown ? '🤷 어디였는지 기억 안남' : restaurantLabel(entry.restaurantId);
+  document.getElementById('memberEntryEditTitle').textContent = `${entry.date} · ${rName}`;
+  document.getElementById('memberEntryCountInput').value = entry.count;
+  document.getElementById('memberEntrySpecialCheck').checked = entry.special;
+  document.getElementById('memberEntryEditModalOverlay').style.display = 'flex';
+}
+function closeMemberEntryEditModal() {
+  document.getElementById('memberEntryEditModalOverlay').style.display = 'none';
+  memberEditTargetEntry = null;
+}
+document.getElementById('memberEntryCancelBtn').addEventListener('click', closeMemberEntryEditModal);
+document.getElementById('memberEntryEditModalOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'memberEntryEditModalOverlay') closeMemberEntryEditModal();
+});
+
+// 방금 수정/삭제한 기록이 "로그인한 나 자신"의 것이었다면, 캘린더에 쓰는 myMonthEntries 캐시도 같이 맞춰줌
+function syncMyMonthEntriesAfterAdminEdit(entry, deleted) {
+  if (entry.member !== session.name) return;
+  if (deleted) {
+    myMonthEntries = myMonthEntries.filter(e => e.id !== entry.id);
+  } else {
+    const mine = myMonthEntries.find(e => e.id === entry.id);
+    if (mine) { mine.count = entry.count; mine.special = entry.special; }
+  }
+}
+
+document.getElementById('memberEntrySaveBtn').addEventListener('click', async () => {
+  const count = parseInt(document.getElementById('memberEntryCountInput').value, 10);
+  const special = document.getElementById('memberEntrySpecialCheck').checked;
+  if (!count || count <= 0) { alert('장수를 올바르게 입력해주세요.'); return; }
+  if (!memberEditTargetEntry) return;
+
+  try {
+    await updateMealEntryDoc(memberEditTargetEntry.id, { count, special });
+    memberEditTargetEntry.count = count;
+    memberEditTargetEntry.special = special;
+    syncMyMonthEntriesAfterAdminEdit(memberEditTargetEntry, false);
+  } catch (err) {
+    console.error(err);
+    alert('저장 중 문제가 발생했어요.');
+    return;
+  }
+
+  closeMemberEntryEditModal();
+  renderMemberEntryList();
+  renderAdminTable();
+});
+
+document.getElementById('memberEntryDeleteBtn').addEventListener('click', async () => {
+  if (!memberEditTargetEntry) return;
+  if (!confirm('이 식권 사용 기록을 삭제할까요?')) return;
+
+  try {
+    await deleteMealEntryDoc(memberEditTargetEntry.id);
+    teamAllEntries = teamAllEntries.filter(e => e.id !== memberEditTargetEntry.id);
+    syncMyMonthEntriesAfterAdminEdit(memberEditTargetEntry, true);
+  } catch (err) {
+    console.error(err);
+    alert('삭제 중 문제가 발생했어요.');
+    return;
+  }
+
+  closeMemberEntryEditModal();
+  renderMemberEntryList();
+  renderAdminTable();
+});
+
 /* ============ 결제 QR 모달 (밥장 전용, 웹 화면에서만 표시 - 엑셀엔 포함 안 됨) ============ */
 // Storage 없이 Firestore 문서(최대 1MB)에 base64로 바로 저장하기 위한 제한값
 const QR_MAX_ORIGINAL_MB = 15;   // 업로드 원본 파일 용량 제한
