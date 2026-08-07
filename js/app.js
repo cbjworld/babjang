@@ -100,21 +100,38 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
   showScreen('screen-login');
 });
 
-function enterMainScreen() {
+async function enterMainScreen() {
   document.getElementById('whoTeam').textContent = formatOrgLabel(session.dept, session.team);
   document.getElementById('whoName').textContent = session.name + (session.isBabjang ? ' (밥장)' : '');
   document.getElementById('toAdminBtn').style.display = session.isBabjang ? 'inline-block' : 'none';
+
+  showScreen('screen-main');
+  document.getElementById('restaurantList').innerHTML = '<p class="muted">불러오는 중...</p>';
+  document.getElementById('calGrid').innerHTML = '';
+
+  try {
+    if (restaurantsCache.length === 0) await loadRestaurants(); // 식당 마스터는 앱 실행 중 한 번만 불러오면 충분
+    teamEnabledIds = await loadTeamEnabledIds(session.groupKey);
+    await loadMyMonthEntries(session.groupKey, session.name, currentYear, currentMonth);
+  } catch (err) {
+    console.error(err);
+    alert('데이터를 불러오는 중 문제가 발생했어요. firebase-init.js 설정과 인터넷 연결을 확인해주세요.');
+  }
+
   renderRestaurantList();
   renderCalendar();
   renderMonthlyGauge();
-  showScreen('screen-main');
 }
 
 /* ============ 식당 목록 (클릭하면 모달 오픈) ============ */
+function getEnabledRestaurants() {
+  return sortedByDongThenName(restaurantsCache.filter(r => teamEnabledIds.has(r.id)));
+}
+
 function renderRestaurantList() {
   const wrap = document.getElementById('restaurantList');
   const keyword = (document.getElementById('restaurantSearch').value || '').trim().toLowerCase();
-  const teamRestaurants = getEnabledRestaurants(session.groupKey);
+  const teamRestaurants = getEnabledRestaurants();
 
   const filtered = keyword
     ? teamRestaurants.filter(r => r.name.toLowerCase().includes(keyword) || r.dong.toLowerCase().includes(keyword))
@@ -175,7 +192,7 @@ function renderCalendar() {
     cell.className = 'cal-cell';
     if (dateStr === selectedDate) cell.classList.add('selected');
 
-    const entries = mealUsage[dateStr] || [];
+    const entries = entriesForDate(dateStr);
     const total = entries.reduce((sum, e) => sum + e.count, 0);
     const hasSpecial = entries.some(e => e.special);
 
@@ -197,12 +214,9 @@ function formatDate(y, m, d) {
 function monthPrefix(y, m) { return `${y}-${String(m+1).padStart(2,'0')}`; }
 
 function getMonthlyNormalTotal(y, m) {
-  const prefix = monthPrefix(y, m);
-  let total = 0;
-  Object.keys(mealUsage).filter(d => d.startsWith(prefix)).forEach(d => {
-    mealUsage[d].forEach(e => { if (!e.special) total += e.count; });
-  });
-  return total;
+  // myMonthEntries는 항상 "현재 표시 중인 달"만 담고 있어서, 그 달일 때만 정확함
+  if (y !== currentYear || m !== currentMonth) return 0;
+  return myMonthEntries.reduce((sum, e) => sum + (e.special ? 0 : e.count), 0);
 }
 
 function renderMonthlyGauge() {
@@ -215,12 +229,18 @@ function renderMonthlyGauge() {
   `;
 }
 
-document.getElementById('prevMonthBtn').addEventListener('click', () => {
+document.getElementById('prevMonthBtn').addEventListener('click', async () => {
   currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  selectedDate = null;
+  document.getElementById('entryPanel').style.display = 'none';
+  await loadMyMonthEntries(session.groupKey, session.name, currentYear, currentMonth);
   renderCalendar();
 });
-document.getElementById('nextMonthBtn').addEventListener('click', () => {
+document.getElementById('nextMonthBtn').addEventListener('click', async () => {
   currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  selectedDate = null;
+  document.getElementById('entryPanel').style.display = 'none';
+  await loadMyMonthEntries(session.groupKey, session.name, currentYear, currentMonth);
   renderCalendar();
 });
 
@@ -239,19 +259,19 @@ function renderEntryPanel() {
   const dow = ['일','월','화','수','목','금','토'][new Date(y, m-1, d).getDay()];
   document.getElementById('entryDateLabel').textContent = `${m}월 ${d}일 (${dow}) 식권 사용`;
 
-  const entries = mealUsage[selectedDate] || [];
+  const entries = entriesForDate(selectedDate);
   document.getElementById('entryTotalNote').textContent = `이 날 입력: ${entries.length}건`;
 
   const listEl = document.getElementById('entryList');
-  listEl.innerHTML = entries.map((e, idx) => {
-    const name = e.unknown ? '🤷 어디였는지 기억 안남' : (RESTAURANTS.find(r => r.id === e.restaurantId)?.name || '알수없음');
+  listEl.innerHTML = entries.map((e) => {
+    const name = e.unknown ? '🤷 어디였는지 기억 안남' : (restaurantsCache.find(r => r.id === e.restaurantId)?.name || '알수없음');
     const tag = e.special ? '<span class="tag">특별식권</span>' : '';
     return `<div class="entry-row">
       <span class="r-name">${name}${tag}</span>
       <span>${e.count}장</span>
       <span class="actions">
-        <button onclick="openEditModal(${idx})">수정</button>
-        <button onclick="removeEntry(${idx})">삭제</button>
+        <button onclick="openEditModal('${e.id}')">수정</button>
+        <button onclick="removeEntry('${e.id}')">삭제</button>
       </span>
     </div>`;
   }).join('') || '<p style="font-size:13px;color:#999;">아직 입력된 식권 사용이 없습니다.</p>';
@@ -260,18 +280,18 @@ function renderEntryPanel() {
 /* ============ 식권 입력/수정 모달 ============ */
 let modalMode = null; // 'add' | 'edit'
 let modalRestaurantId = null;
-let modalEditIndex = null;
+let modalEditEntryId = null;
 
 function restaurantModalTitle(id) {
   if (id === UNKNOWN_ID) return '🤷 어디였는지 기억 안남';
-  const r = RESTAURANTS.find(r => r.id === id);
+  const r = restaurantsCache.find(r => r.id === id);
   return r ? `${r.name} (${r.dong})` : '알수없음';
 }
 
 function openAddModal(restaurantId) {
   modalMode = 'add';
   modalRestaurantId = restaurantId;
-  modalEditIndex = null;
+  modalEditEntryId = null;
 
   document.getElementById('modalRestaurantName').textContent = restaurantModalTitle(restaurantId);
   const [y, m, d] = selectedDate.split('-').map(Number);
@@ -284,11 +304,12 @@ function openAddModal(restaurantId) {
   document.getElementById('modalCountInput').focus();
 }
 
-function openEditModal(idx) {
-  const entry = mealUsage[selectedDate][idx];
+function openEditModal(entryId) {
+  const entry = myMonthEntries.find(e => e.id === entryId);
+  if (!entry) return;
   modalMode = 'edit';
   modalRestaurantId = entry.restaurantId;
-  modalEditIndex = idx;
+  modalEditEntryId = entryId;
 
   document.getElementById('modalRestaurantName').textContent = restaurantModalTitle(entry.restaurantId);
   const [y, m, d] = selectedDate.split('-').map(Number);
@@ -303,7 +324,7 @@ function openEditModal(idx) {
 
 function closeModal() {
   document.getElementById('entryModalOverlay').style.display = 'none';
-  modalMode = null; modalRestaurantId = null; modalEditIndex = null;
+  modalMode = null; modalRestaurantId = null; modalEditEntryId = null;
 }
 
 document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
@@ -311,7 +332,7 @@ document.getElementById('entryModalOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'entryModalOverlay') closeModal();
 });
 
-function saveEntryModal() {
+async function saveEntryModal() {
   const count = parseInt(document.getElementById('modalCountInput').value, 10);
   const isSpecial = document.getElementById('modalSpecialCheck').checked;
 
@@ -319,38 +340,47 @@ function saveEntryModal() {
 
   const [y, m] = selectedDate.split('-').map(Number);
 
-  if (modalMode === 'add') {
-    if (!isSpecial) {
-      const currentMonthlyTotal = getMonthlyNormalTotal(y, m - 1);
-      if (currentMonthlyTotal + count > MONTHLY_LIMIT) {
-        alert(`이번 달 일반 식권은 최대 ${MONTHLY_LIMIT}장까지예요. (현재 ${currentMonthlyTotal}장 사용)\n비상근무 특별식권이면 체크 후 저장해주세요.`);
-        return;
-      }
-    }
-    const isUnknown = (modalRestaurantId === UNKNOWN_ID);
-    const entries = mealUsage[selectedDate] || [];
-    entries.push({ restaurantId: modalRestaurantId, count, special: isSpecial, unknown: isUnknown });
-    mealUsage[selectedDate] = entries;
+  const saveBtn = document.getElementById('modalSaveBtn');
+  saveBtn.disabled = true;
 
-    // 밥장 관리 화면용 팀 로그에도 동기화 (데모 목적)
-    teamMealLogs.push({ member: session.name, team: session.groupKey, date: selectedDate, restaurantId: modalRestaurantId, count, special: isSpecial, unknown: isUnknown });
-
-  } else if (modalMode === 'edit') {
-    const entry = mealUsage[selectedDate][modalEditIndex];
-    if (!isSpecial) {
-      const otherMonthlyTotal = getMonthlyNormalTotal(y, m - 1) - entry.count;
-      if (otherMonthlyTotal + count > MONTHLY_LIMIT) {
-        alert(`이번 달 일반 식권 한도(${MONTHLY_LIMIT}장)를 넘을 수 없습니다.`);
-        return;
+  try {
+    if (modalMode === 'add') {
+      if (!isSpecial) {
+        const currentMonthlyTotal = getMonthlyNormalTotal(y, m - 1);
+        if (currentMonthlyTotal + count > MONTHLY_LIMIT) {
+          alert(`이번 달 일반 식권은 최대 ${MONTHLY_LIMIT}장까지예요. (현재 ${currentMonthlyTotal}장 사용)\n비상근무 특별식권이면 체크 후 저장해주세요.`);
+          return;
+        }
       }
+      const isUnknown = (modalRestaurantId === UNKNOWN_ID);
+      const entry = { team: session.groupKey, member: session.name, date: selectedDate, restaurantId: modalRestaurantId, count, special: isSpecial, unknown: isUnknown };
+      const id = await addMealEntryDoc(entry);
+      myMonthEntries.push({ id, ...entry });
+
+    } else if (modalMode === 'edit') {
+      const entry = myMonthEntries.find(e => e.id === modalEditEntryId);
+      if (!entry) return;
+      if (!isSpecial) {
+        const otherMonthlyTotal = getMonthlyNormalTotal(y, m - 1) - entry.count;
+        if (otherMonthlyTotal + count > MONTHLY_LIMIT) {
+          alert(`이번 달 일반 식권 한도(${MONTHLY_LIMIT}장)를 넘을 수 없습니다.`);
+          return;
+        }
+      }
+      await updateMealEntryDoc(entry.id, { count, special: isSpecial });
+      entry.count = count;
+      entry.special = isSpecial;
     }
-    entry.count = count;
-    entry.special = isSpecial;
+
+    closeModal();
+    renderEntryPanel();
+    renderCalendar();
+  } catch (err) {
+    console.error(err);
+    alert('저장 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.');
+  } finally {
+    saveBtn.disabled = false;
   }
-
-  closeModal();
-  renderEntryPanel();
-  renderCalendar();
 }
 document.getElementById('modalSaveBtn').addEventListener('click', saveEntryModal);
 
@@ -359,10 +389,16 @@ document.getElementById('modalCountInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); saveEntryModal(); }
 });
 
-function removeEntry(idx) {
-  mealUsage[selectedDate].splice(idx, 1);
-  renderEntryPanel();
-  renderCalendar();
+async function removeEntry(entryId) {
+  try {
+    await deleteMealEntryDoc(entryId);
+    myMonthEntries = myMonthEntries.filter(e => e.id !== entryId);
+    renderEntryPanel();
+    renderCalendar();
+  } catch (err) {
+    console.error(err);
+    alert('삭제 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.');
+  }
 }
 
 /* ============ 밥장: 밥장 넘기기 ============ */
@@ -430,7 +466,7 @@ function populateDongFilter() {
   document.getElementById('newRestaurantDong').innerHTML = DONG_LIST.map(d => `<option value="${d}">${d}</option>`).join('');
 
   const sel = document.getElementById('dongFilterSelect');
-  const dongsInUse = [...new Set(RESTAURANTS.map(r => r.dong))];
+  const dongsInUse = [...new Set(restaurantsCache.map(r => r.dong))];
   const dongs = DONG_LIST.filter(d => dongsInUse.includes(d))
     .concat(dongsInUse.filter(d => !DONG_LIST.includes(d))); // 목록에 없는 동은 뒤에 붙임
   sel.innerHTML = `<option value="__all__">전체 동</option>` + dongs.map(d => `<option value="${d}">${d}</option>`).join('');
@@ -438,12 +474,11 @@ function populateDongFilter() {
 }
 
 function renderTeamRestaurantChecklist() {
-  const enabledIds = getEnabledRestaurantIds(session.groupKey);
   const wrap = document.getElementById('teamRestaurantChecklist');
   const dongFilter = document.getElementById('dongFilterSelect').value;
 
   const list = sortedByDongThenName(
-    dongFilter === '__all__' ? RESTAURANTS : RESTAURANTS.filter(r => r.dong === dongFilter)
+    dongFilter === '__all__' ? restaurantsCache : restaurantsCache.filter(r => r.dong === dongFilter)
   );
 
   if (list.length === 0) {
@@ -454,16 +489,18 @@ function renderTeamRestaurantChecklist() {
 
   wrap.innerHTML = `<div class="checklist-grid">` + list.map(r => `
     <label>
-      <input type="checkbox" data-rid="${r.id}" ${enabledIds.has(r.id) ? 'checked' : ''}>
+      <input type="checkbox" data-rid="${r.id}" ${teamEnabledIds.has(r.id) ? 'checked' : ''}>
       <span>${r.name} <span style="color:#999; font-size:11px;">(${r.dong})</span></span>
     </label>
   `).join('') + `</div>`;
 
   wrap.querySelectorAll('input[type=checkbox]').forEach(cb => {
-    cb.addEventListener('change', () => {
-      if (cb.checked) enabledIds.add(cb.dataset.rid);
-      else enabledIds.delete(cb.dataset.rid);
+    cb.addEventListener('change', async () => {
+      if (cb.checked) teamEnabledIds.add(cb.dataset.rid);
+      else teamEnabledIds.delete(cb.dataset.rid);
       syncSelectAllState(list);
+      try { await saveTeamEnabledIds(session.groupKey, teamEnabledIds); }
+      catch (err) { console.error(err); alert('저장 중 문제가 발생했어요.'); }
     });
   });
 
@@ -471,20 +508,20 @@ function renderTeamRestaurantChecklist() {
 }
 
 function syncSelectAllState(list) {
-  const enabledIds = getEnabledRestaurantIds(session.groupKey);
   const selectAll = document.getElementById('selectAllCheck');
-  selectAll.checked = list.length > 0 && list.every(r => enabledIds.has(r.id));
+  selectAll.checked = list.length > 0 && list.every(r => teamEnabledIds.has(r.id));
 }
 
-document.getElementById('selectAllCheck').addEventListener('change', (e) => {
-  const enabledIds = getEnabledRestaurantIds(session.groupKey);
+document.getElementById('selectAllCheck').addEventListener('change', async (e) => {
   const dongFilter = document.getElementById('dongFilterSelect').value;
-  const list = dongFilter === '__all__' ? RESTAURANTS : RESTAURANTS.filter(r => r.dong === dongFilter);
-  list.forEach(r => { if (e.target.checked) enabledIds.add(r.id); else enabledIds.delete(r.id); });
+  const list = dongFilter === '__all__' ? restaurantsCache : restaurantsCache.filter(r => r.dong === dongFilter);
+  list.forEach(r => { if (e.target.checked) teamEnabledIds.add(r.id); else teamEnabledIds.delete(r.id); });
+  try { await saveTeamEnabledIds(session.groupKey, teamEnabledIds); }
+  catch (err) { console.error(err); alert('저장 중 문제가 발생했어요.'); }
   renderTeamRestaurantChecklist();
 });
 
-document.getElementById('addRestaurantBtn').addEventListener('click', () => {
+document.getElementById('addRestaurantBtn').addEventListener('click', async () => {
   const nameInput = document.getElementById('newRestaurantName');
   const dongSelect = document.getElementById('newRestaurantDong');
   const name = nameInput.value.trim();
@@ -492,19 +529,28 @@ document.getElementById('addRestaurantBtn').addEventListener('click', () => {
 
   if (!name || !dong) { alert('식당 이름을 입력하고 동을 선택해주세요.'); return; }
 
-  const exists = RESTAURANTS.some(r => r.name === name && r.dong === dong);
+  const exists = restaurantsCache.some(r => r.name === name && r.dong === dong);
   if (exists) { alert('이미 같은 이름/동네의 식당이 등록되어 있어요.'); return; }
 
-  restaurantIdCounter++;
-  const newId = `r${restaurantIdCounter}`;
-  RESTAURANTS.push({ id: newId, name, dong, qrImageUrl: null });
+  const addBtn = document.getElementById('addRestaurantBtn');
+  addBtn.disabled = true;
+  try {
+    const newId = await addRestaurantDoc(name, dong);
+    restaurantsCache.push({ id: newId, name, dong, qrImageUrl: null });
 
-  // 새로 추가한 밥장의 팀에는 자동으로 활성화
-  getEnabledRestaurantIds(session.groupKey).add(newId);
+    // 새로 추가한 밥장의 팀에는 자동으로 활성화
+    teamEnabledIds.add(newId);
+    await saveTeamEnabledIds(session.groupKey, teamEnabledIds);
 
-  nameInput.value = '';
-  populateDongFilter();
-  renderTeamRestaurantChecklist();
+    nameInput.value = '';
+    populateDongFilter();
+    renderTeamRestaurantChecklist();
+  } catch (err) {
+    console.error(err);
+    alert('식당 추가 중 문제가 발생했어요.');
+  } finally {
+    addBtn.disabled = false;
+  }
 });
 
 /* ============ 밥장 관리 화면: 인원 x 식당 기준 집계 ============ */
@@ -513,9 +559,18 @@ document.getElementById('toAdminBtn').addEventListener('click', async () => {
   renderBabjangHandoffSection(); // 내부적으로 비동기 로딩, 완료되면 알아서 채워짐
   populateDongFilter();
   renderTeamRestaurantChecklist();
+
+  document.getElementById('adminTableBody').innerHTML = '<tr><td>불러오는 중...</td></tr>';
+  showScreen('screen-admin');
+
+  try {
+    await loadTeamAllEntries(session.groupKey);
+  } catch (err) {
+    console.error(err);
+    alert('식권 기록을 불러오는 중 문제가 발생했어요.');
+  }
   populateAdminMonths();
   renderAdminTable();
-  showScreen('screen-admin');
 });
 document.getElementById('backToMainBtn').addEventListener('click', () => {
   renderRestaurantList(); // 밥장 관리 화면에서 바꾼 '우리 팀 식당' 설정을 메인 화면에 반영
@@ -525,7 +580,7 @@ document.getElementById('backToMainBtn').addEventListener('click', () => {
 
 function populateAdminMonths() {
   const sel = document.getElementById('adminMonthSelect');
-  const months = teamMealLogs.filter(e => e.team === session.groupKey).map(e => e.date.slice(0,7));
+  const months = teamAllEntries.map(e => e.date.slice(0,7));
   const uniqueMonths = [...new Set(months)].sort();
   if (uniqueMonths.length === 0) uniqueMonths.push(monthPrefix(currentYear, currentMonth));
   sel.innerHTML = uniqueMonths.map(m => `<option value="${m}">${m}</option>`).join('');
@@ -535,12 +590,12 @@ function populateAdminMonths() {
 
 function restaurantLabel(id) {
   if (id === UNKNOWN_ID) return '🤷 기억안남';
-  return RESTAURANTS.find(r => r.id === id)?.name || '알수없음';
+  return restaurantsCache.find(r => r.id === id)?.name || '알수없음';
 }
 
 // 식당(행) x 팀원(열) 매트릭스 생성
 function buildAdminMatrix(monthSel) {
-  const monthLogs = teamMealLogs.filter(e => e.team === session.groupKey && e.date.startsWith(monthSel));
+  const monthLogs = teamAllEntries.filter(e => e.date.startsWith(monthSel));
 
   const members = [...new Set(monthLogs.map(e => e.member))].sort((a,b) => a.localeCompare(b));
   const restaurantIds = [...new Set(monthLogs.map(e => e.restaurantId))];
@@ -548,7 +603,7 @@ function buildAdminMatrix(monthSel) {
   restaurantIds.sort((a,b) => {
     if (a === UNKNOWN_ID) return 1;
     if (b === UNKNOWN_ID) return -1;
-    return RESTAURANTS.findIndex(r=>r.id===a) - RESTAURANTS.findIndex(r=>r.id===b);
+    return restaurantsCache.findIndex(r=>r.id===a) - restaurantsCache.findIndex(r=>r.id===b);
   });
 
   const matrix = {}; // matrix[restaurantId][member] = count
@@ -654,7 +709,7 @@ function estimateBase64KB(dataUrl) {
 }
 
 function openQrModal(restaurantId) {
-  const r = RESTAURANTS.find(x => x.id === restaurantId);
+  const r = restaurantsCache.find(x => x.id === restaurantId);
   if (!r) return;
 
   qrModalRestaurantId = restaurantId;
@@ -826,20 +881,32 @@ document.getElementById('qrModalOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'qrModalOverlay') closeQrModal();
 });
 
-document.getElementById('qrSaveBtn').addEventListener('click', () => {
-  const r = RESTAURANTS.find(x => x.id === qrModalRestaurantId);
+document.getElementById('qrSaveBtn').addEventListener('click', async () => {
+  const r = restaurantsCache.find(x => x.id === qrModalRestaurantId);
   if (!r) { closeQrModal(); return; }
   if (qrPendingDataUrl) {
-    r.qrImageUrl = qrPendingDataUrl; // 전체 공유 마스터에 저장 - 다른 팀 밥장도 같은 QR을 보게 됨
+    try {
+      await updateRestaurantQr(r.id, qrPendingDataUrl); // Firestore에 저장 - 다른 팀 밥장도 같은 QR을 보게 됨
+    } catch (err) {
+      console.error(err);
+      alert('QR 저장 중 문제가 발생했어요.');
+      return;
+    }
   }
   closeQrModal();
 });
 
-document.getElementById('qrDeleteBtn').addEventListener('click', () => {
-  const r = RESTAURANTS.find(x => x.id === qrModalRestaurantId);
+document.getElementById('qrDeleteBtn').addEventListener('click', async () => {
+  const r = restaurantsCache.find(x => x.id === qrModalRestaurantId);
   if (!r) return;
   if (!confirm('이 식당의 결제 QR을 삭제할까요?')) return;
-  r.qrImageUrl = null;
+  try {
+    await updateRestaurantQr(r.id, null);
+  } catch (err) {
+    console.error(err);
+    alert('삭제 중 문제가 발생했어요.');
+    return;
+  }
   qrPendingDataUrl = null;
   renderQrPreview(null);
 });

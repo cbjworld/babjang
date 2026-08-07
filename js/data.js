@@ -73,23 +73,37 @@ const TEAMS_BY_DEPT = {
   // 는 의도적으로 여기 없음 -> 팀 선택란이 자동으로 숨겨짐
 };
 
-let RESTAURANTS = [
-  { id: "r1", name: "삼각지 진심식당", dong: "이태원동", qrImageUrl: null },
-  { id: "r2", name: "한남동 국수집", dong: "한남동", qrImageUrl: null },
-  { id: "r3", name: "용산 뚝배기", dong: "용산2가동", qrImageUrl: null },
-  { id: "r4", name: "중화반점 남영", dong: "남영동", qrImageUrl: null },
-  { id: "r5", name: "할머니 손칼국수", dong: "용산2가동", qrImageUrl: null }
-];
-let restaurantIdCounter = RESTAURANTS.length;
+// ============ 식당 마스터 (Firestore restaurants 컬렉션 - 전 부서/동 공유) ============
+let restaurantsCache = []; // 앱 실행 중 캐시. loadRestaurants()로 채움
 
-// 팀별로 "우리 팀이 쓸 수 있는 식당" 구독 목록 (식당 마스터 자체는 전 부서/동 공유)
-let teamRestaurantSettings = {}; // { [team]: Set(restaurantId) }
-function getEnabledRestaurantIds(team) {
-  if (!teamRestaurantSettings[team]) {
-    teamRestaurantSettings[team] = new Set(RESTAURANTS.map(r => r.id)); // 최초엔 전체 마스터 다 켜진 상태로 시작
-  }
-  return teamRestaurantSettings[team];
+async function loadRestaurants() {
+  const snap = await db.collection('restaurants').get();
+  restaurantsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return restaurantsCache;
 }
+
+async function addRestaurantDoc(name, dong) {
+  const ref = await db.collection('restaurants').add({ name, dong, qrImageUrl: null });
+  return ref.id;
+}
+
+async function updateRestaurantQr(restaurantId, qrImageUrl) {
+  await db.collection('restaurants').doc(restaurantId).update({ qrImageUrl });
+  const r = restaurantsCache.find(x => x.id === restaurantId);
+  if (r) r.qrImageUrl = qrImageUrl; // 캐시도 같이 갱신
+}
+
+// ============ 팀별 "우리 팀이 쓸 식당" 구독 (Firestore teamRestaurants 컬렉션, 문서ID=groupKey) ============
+async function loadTeamEnabledIds(groupKey) {
+  const doc = await db.collection('teamRestaurants').doc(groupKey).get();
+  if (!doc.exists) return new Set(restaurantsCache.map(r => r.id)); // 최초엔 전체 마스터 다 켜진 상태로 시작
+  return new Set(doc.data().enabledIds || []);
+}
+
+async function saveTeamEnabledIds(groupKey, idsSet) {
+  await db.collection('teamRestaurants').doc(groupKey).set({ enabledIds: Array.from(idsSet) });
+}
+
 // 동 목록 (순서는 나중에 지정 예정 - 지금은 임시 순서)
 const DONG_LIST = ["이태원동", "한남동", "용산2가동", "남영동", "청파동"];
 
@@ -101,17 +115,13 @@ function sortedByName(list) {
 function sortedByDongThenName(list) {
   return [...list].sort((a, b) => {
     const da = DONG_LIST.indexOf(a.dong);
-    const db = DONG_LIST.indexOf(b.dong);
-    const dongDiff = (da === -1 ? 999 : da) - (db === -1 ? 999 : db);
+    const db2 = DONG_LIST.indexOf(b.dong);
+    const dongDiff = (da === -1 ? 999 : da) - (db2 === -1 ? 999 : db2);
     if (dongDiff !== 0) return dongDiff;
     return a.name.localeCompare(b.name, 'ko');
   });
 }
 
-function getEnabledRestaurants(team) {
-  const ids = getEnabledRestaurantIds(team);
-  return sortedByDongThenName(RESTAURANTS.filter(r => ids.has(r.id)));
-}
 // 부서명이 같아도 팀 이름이 겹칠 수 있어서(예: 홍보팀) 내부적으로는 "부서::팀" 조합키로 구분함
 // team이 없는 경우(부구청장/각 국처럼 팀 선택이 없는 부서)는 부서명 자체를 키로 씀
 function makeGroupKey(dept, team) {
@@ -182,17 +192,49 @@ let session = null;
 let currentYear, currentMonth;
 let selectedDate = null;
 let selectedRestaurantId = null; // 현재 입력 폼에서 클릭으로 선택된 식당
-let mealUsage = {}; // { "YYYY-MM-DD": [{restaurantId, count, special, unknown}] }
 
-// 밥장 관리 화면용 팀 전체 로그 (실제로는 서버에서 팀원 전체 데이터를 받아옴 - 지금은 데모용 목업 포함)
-let teamMealLogs = [
-  { member: "김민준", team: makeGroupKey("행정지원과", "총무팀"), date: "2026-08-03", restaurantId: "r1", count: 3, special: false, unknown: false },
-  { member: "김민준", team: makeGroupKey("행정지원과", "총무팀"), date: "2026-08-10", restaurantId: "r3", count: 2, special: false, unknown: false },
-  { member: "이서연", team: makeGroupKey("행정지원과", "총무팀"), date: "2026-08-05", restaurantId: "r2", count: 4, special: false, unknown: false },
-  { member: "이서연", team: makeGroupKey("행정지원과", "총무팀"), date: "2026-08-14", restaurantId: UNKNOWN_ID, count: 1, special: false, unknown: true },
-  { member: "박도윤", team: makeGroupKey("행정지원과", "총무팀"), date: "2026-08-06", restaurantId: "r5", count: 5, special: false, unknown: false },
-  { member: "박도윤", team: makeGroupKey("행정지원과", "총무팀"), date: "2026-08-20", restaurantId: "r1", count: 2, special: true, unknown: false }
-];
+// 캘린더에 표시 중인 "이번 달 내 식권 사용 기록" 캐시 - 월 이동/로그인 시 loadMyMonthEntries()로 채움
+let myMonthEntries = []; // [{id, date, restaurantId, count, special, unknown}]
+// 밥장 관리 화면에서 쓰는 "우리 팀 전체 식권 기록" 캐시 (월 필터는 화면단에서)
+let teamAllEntries = [];
+// 우리 팀이 쓸 수 있는 식당 id 집합 캐시 - loadTeamEnabledIds()로 채움
+let teamEnabledIds = new Set();
+
+// ============ 식권 사용 기록 (Firestore mealUsage 컬렉션) ============
+function entriesForDate(dateStr) {
+  return myMonthEntries.filter(e => e.date === dateStr);
+}
+
+// 로그인한 본인의 이번 달 기록을 불러와 myMonthEntries에 채움
+async function loadMyMonthEntries(groupKey, name, year, month) {
+  const prefix = monthPrefix(year, month);
+  const snap = await db.collection('mealUsage')
+    .where('team', '==', groupKey)
+    .where('member', '==', name)
+    .get();
+  myMonthEntries = snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(e => e.date.startsWith(prefix));
+  return myMonthEntries;
+}
+
+// 밥장 관리 화면용 - 우리 팀 전체(모든 팀원) 기록을 통째로 불러옴 (월 목록/집계 둘 다 여기서 뽑아 씀)
+async function loadTeamAllEntries(groupKey) {
+  const snap = await db.collection('mealUsage').where('team', '==', groupKey).get();
+  teamAllEntries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return teamAllEntries;
+}
+
+async function addMealEntryDoc(entry) {
+  const ref = await db.collection('mealUsage').add(entry);
+  return ref.id;
+}
+async function updateMealEntryDoc(id, patch) {
+  await db.collection('mealUsage').doc(id).update(patch);
+}
+async function deleteMealEntryDoc(id) {
+  await db.collection('mealUsage').doc(id).delete();
+}
 
 const todayObj = new Date();
 currentYear = todayObj.getFullYear();
