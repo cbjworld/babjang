@@ -1,0 +1,135 @@
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Malgun Gothic", sans-serif;
+    background: #f2f2f2;
+    margin: 0;
+    color: #222;
+  }
+  .screen { display: none; max-width: 900px; margin: 0 auto; padding: 20px; }
+  .screen.active { display: block; }
+
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .muted { color: #777; font-size: 13px; margin-bottom: 20px; }
+  button {
+    cursor: pointer; border: 1px solid #999; background: #fff;
+    padding: 8px 14px; border-radius: 4px; font-size: 14px;
+  }
+  button.primary { background: #333; color: #fff; border-color: #333; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  select, input[type=text], input[type=number], input[type=password] {
+    padding: 8px; border: 1px solid #bbb; border-radius: 4px; font-size: 14px;
+  }
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #ddd;
+  }
+  .topbar .who { font-size: 13px; color: #555; }
+  .topbar .who b { color: #000; }
+
+  /* ---- 로그인 ---- */
+  .login-box {
+    max-width: 380px; margin: 60px auto; background: #fff; padding: 28px;
+    border: 1px solid #ddd; border-radius: 8px;
+  }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; color: #555; margin-bottom: 6px; }
+  .radio-group { display: flex; gap: 16px; margin-bottom: 16px; }
+  .radio-group label { font-size: 14px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .field select, .field input { width: 100%; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; font-size: 13px; }
+  .login-box button.primary { width: 100%; padding: 12px; font-size: 15px; }
+  .babjang-limit-note { font-size: 12px; color: #c0392b; margin-top: 4px; display: none; }
+
+  /* ---- 메인 ---- */
+  .main-layout { display: flex; gap: 24px; align-items: flex-start; }
+  .calendar-panel { flex: 2; }
+  .restaurant-panel { flex: 1; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 14px; position: sticky; top: 20px; }
+  .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .cal-header .month-label { font-size: 17px; font-weight: bold; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-dow { text-align: center; font-size: 12px; color: #888; padding: 4px 0; }
+  .cal-cell {
+    background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;
+    min-height: 64px; padding: 6px; cursor: pointer; position: relative;
+  }
+  .cal-cell.empty { background: transparent; border: none; cursor: default; }
+  .cal-cell:hover:not(.empty) { border-color: #333; }
+  .cal-cell .date-num { font-size: 12px; color: #555; }
+  .cal-cell.selected { outline: 2px solid #333; }
+  .cal-cell .day-summary {
+    margin-top: 6px; font-size: 11px; background: #eef; color: #334;
+    border-radius: 3px; padding: 2px 4px; display: inline-block;
+  }
+  .cal-cell .has-special { background: #fff3d6; color: #8a5a00; }
+
+  .monthly-gauge { font-size: 12px; color: #555; margin: 10px 0 16px; padding: 8px 10px; background: #fff; border: 1px solid #ddd; border-radius: 4px; }
+  .monthly-gauge .bar-bg { background: #eee; height: 6px; border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .monthly-gauge .bar-fill { height: 100%; background: #333; }
+  .monthly-gauge .bar-fill.over { background: #c0392b; }
+
+  .restaurant-panel h3 { font-size: 14px; margin-bottom: 10px; }
+  .r-item {
+    padding: 9px 8px; border-bottom: 1px solid #eee; font-size: 13px;
+    display: flex; justify-content: space-between; cursor: pointer; border-radius: 4px;
+  }
+  .r-item:hover { background: #f7f7f7; }
+  .r-item.selected { background: #333; color: #fff; }
+  .r-item.selected .r-dong { color: #ccc; }
+  .r-item .r-dong { color: #999; font-size: 11px; }
+  .r-item.unknown-item { font-style: italic; color: #777; margin-top: 6px; border-top: 1px dashed #ccc; padding-top: 10px; }
+  .r-item.unknown-item.selected { color: #fff; }
+
+  /* ---- 입력 패널 ---- */
+  .entry-panel { margin-top: 18px; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 16px; }
+  .entry-panel h3 { font-size: 15px; margin-bottom: 4px; }
+  .entry-panel .total-note { font-size: 12px; color: #666; margin-bottom: 12px; }
+  .entry-panel .total-note.warn { color: #c0392b; font-weight: bold; }
+  .entry-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 13px; }
+  .entry-row .r-name { font-weight: 500; }
+  .entry-row .tag { font-size: 10px; background: #fdf0d5; color: #8a5a00; padding: 1px 6px; border-radius: 8px; margin-left: 6px; }
+  .entry-row .actions button { padding: 3px 8px; font-size: 12px; margin-left: 4px; }
+
+  .add-entry-form { margin-top: 14px; border-top: 1px solid #eee; padding-top: 14px; }
+  .selected-restaurant-display { font-size: 13px; margin-bottom: 10px; padding: 8px 10px; background: #f7f7f7; border-radius: 4px; }
+  .selected-restaurant-display b { color: #000; }
+  .form-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .option-row { display: flex; gap: 16px; font-size: 13px; margin-bottom: 10px; }
+  .option-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+
+  /* ---- 밥장 관리 ---- */
+  .admin-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; background: #fff; }
+  th, td { border: 1px solid #ddd; padding: 8px 10px; font-size: 13px; text-align: left; }
+  th { background: #f7f7f7; }
+  tfoot td { font-weight: bold; background: #fafafa; }
+  .badge-special { font-size: 10px; background: #fdf0d5; color: #8a5a00; padding: 2px 6px; border-radius: 8px; }
+  .badge-unknown { font-size: 10px; background: #eee; color: #666; padding: 2px 6px; border-radius: 8px; }
+
+  .checklist-box {
+    border: 1px solid #ddd; border-radius: 4px; padding: 10px 12px;
+    max-height: 220px; overflow-y: auto; background: #fafafa;
+  }
+  .checklist-box .checklist-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 4px 10px;
+  }
+  .checklist-box label {
+    display: flex; align-items: center; gap: 7px; font-size: 13px;
+    padding: 5px 4px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .checklist-box label:hover { background: #eee; }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal-box {
+    background: #fff; border-radius: 8px; padding: 22px; width: 320px; max-width: 90vw;
+  }
+  .modal-box h3 { font-size: 16px; margin-bottom: 2px; }
+
+  .qr-crop-wrap { position: relative; display: inline-block; max-width: 100%; }
+  .qr-crop-wrap canvas { display: block; cursor: crosshair; max-width: 100%; border: 1px solid #ccc; }
+  .qr-crop-selection {
+    position: absolute; display: none; border: 2px dashed #c0392b;
+    background: rgba(192,57,43,0.15); pointer-events: none;
+  }
