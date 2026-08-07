@@ -770,19 +770,26 @@ function renderAdminTable() {
 
   thead.innerHTML = `<tr><th>구분</th>${members.map(m => `<th>${m}</th>`).join('')}<th>합계</th><th>금액</th></tr>`;
 
-  tbody.innerHTML = restaurantIds.map(rid => {
-    const cells = members.map(m => `<td>${matrix[rid][m]}</td>`).join('');
-    const clickable = rid !== UNKNOWN_ID;
-    const cellStyle = clickable ? 'style="cursor:pointer; text-decoration:underline dotted; color:#245;"' : '';
-    const amount = (rowTotals[rid] * AVG_PRICE).toLocaleString() + '원';
-    return `<tr><td ${cellStyle} data-rid="${rid}" class="restaurant-cell">${restaurantLabel(rid)}</td>${cells}<td><b>${rowTotals[rid]}</b></td><td>${amount}</td></tr>`;
-  }).join('');
+  // 화면에는 이번 달에 실제로 사용한(0장 초과) 식당만 보여줌 - 엑셀 내보내기는 아래 window._adminMatrix에 원본 그대로 남겨둬서 0인 것도 포함됨
+  const visibleRestaurantIds = restaurantIds.filter(rid => rowTotals[rid] > 0);
 
-  tbody.querySelectorAll('.restaurant-cell').forEach(td => {
-    td.addEventListener('click', () => {
-      if (td.dataset.rid !== UNKNOWN_ID) openQrModal(td.dataset.rid);
+  if (visibleRestaurantIds.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="' + (members.length + 3) + '" style="color:#999;">이번 달 사용 기록이 없습니다.</td></tr>';
+  } else {
+    tbody.innerHTML = visibleRestaurantIds.map(rid => {
+      const cells = members.map(m => `<td>${matrix[rid][m]}</td>`).join('');
+      const clickable = rid !== UNKNOWN_ID;
+      const cellStyle = clickable ? 'style="cursor:pointer; text-decoration:underline dotted; color:#245;"' : '';
+      const amount = (rowTotals[rid] * AVG_PRICE).toLocaleString() + '원';
+      return `<tr><td ${cellStyle} data-rid="${rid}" class="restaurant-cell">${restaurantLabel(rid)}</td>${cells}<td><b>${rowTotals[rid]}</b></td><td>${amount}</td></tr>`;
+    }).join('');
+
+    tbody.querySelectorAll('.restaurant-cell').forEach(td => {
+      td.addEventListener('click', () => {
+        if (td.dataset.rid !== UNKNOWN_ID) openQrModal(td.dataset.rid);
+      });
     });
-  });
+  }
 
   const grandAmount = (grandTotal * AVG_PRICE).toLocaleString() + '원';
   tfoot.innerHTML = `<tr><td>합계</td>${members.map(m => `<td>${colTotals[m]}</td>`).join('')}<td>${grandTotal}</td><td>${grandAmount}</td></tr>`;
@@ -839,8 +846,15 @@ async function exportAdminExcel() {
     });
     headerRow.height = 25;
 
+    // 이번 달 실제 사용(0장 초과) 있는 식당만 내보냄
+    const visibleRestaurantIds = m.restaurantIds.filter(rid => m.rowTotals[rid] > 0);
+    if (visibleRestaurantIds.length === 0) {
+      alert('이번 달 사용 기록이 없습니다.');
+      return;
+    }
+
     // 데이터 행 - A~D열만 테두리, 식당명(B열)은 줄바꿈으로 텍스트 전체 표시, 금액은 회계 서식, 식합계는 천단위 콤마
-    m.restaurantIds.forEach((rid, idx) => {
+    visibleRestaurantIds.forEach((rid, idx) => {
       const rowIdx = 4 + idx;
       const restaurant = restaurantsCache.find(r => r.id === rid);
       const label = restaurantLabel(rid);
@@ -866,7 +880,7 @@ async function exportAdminExcel() {
     });
 
     // 소계 행 - 연번+식당명 병합, 배경색(살구색), 금액 회계 서식, A~D열만 테두리
-    const subtotalRowIdx = 4 + m.restaurantIds.length;
+    const subtotalRowIdx = 4 + visibleRestaurantIds.length;
     sheet.mergeCells(subtotalRowIdx, 1, subtotalRowIdx, 2);
     const subtotalValues = [
       '합  계', '',
