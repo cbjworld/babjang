@@ -413,12 +413,21 @@ async function removeEntry(entryId) {
   }
 }
 
-/* ============ 밥장: 밥장 넘기기 ============ */
-async function renderBabjangHandoffSection() {
-  const section = document.getElementById('babjangHandoffSection');
-  if (!session.isBabjang) { section.style.display = 'none'; return; }
-  section.style.display = 'block';
+/* ============ 밥장: 밥장 넘기기 (상단 버튼 -> 모달) ============ */
+function openBabjangHandoffModal() {
+  document.getElementById('babjangHandoffModalOverlay').style.display = 'flex';
+  renderBabjangHandoffList();
+}
+function closeBabjangHandoffModal() {
+  document.getElementById('babjangHandoffModalOverlay').style.display = 'none';
+}
+document.getElementById('babjangHandoffOpenBtn').addEventListener('click', openBabjangHandoffModal);
+document.getElementById('babjangHandoffCloseBtn').addEventListener('click', closeBabjangHandoffModal);
+document.getElementById('babjangHandoffModalOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'babjangHandoffModalOverlay') closeBabjangHandoffModal();
+});
 
+async function renderBabjangHandoffList() {
   const wrap = document.getElementById('babjangHandoffList');
   wrap.innerHTML = '<p class="muted">불러오는 중...</p>';
 
@@ -468,6 +477,7 @@ async function handoffBabjang(targetId, cachedMembers) {
   setCookie('sikgwon_session', JSON.stringify(session), 90);
 
   alert(`밥장 권한이 "${target.name}"님에게 넘어갔어요.`);
+  closeBabjangHandoffModal();
   document.getElementById('toAdminBtn').style.display = 'none';
   document.getElementById('whoName').textContent = session.name;
   showScreen('screen-main');
@@ -572,7 +582,6 @@ document.getElementById('addRestaurantBtn').addEventListener('click', async () =
 /* ============ 밥장 관리 화면: 인원 x 식당 기준 집계 ============ */
 document.getElementById('toAdminBtn').addEventListener('click', async () => {
   document.getElementById('adminTeamLabel').textContent = formatOrgLabel(session.dept, session.team);
-  renderBabjangHandoffSection(); // 내부적으로 비동기 로딩, 완료되면 알아서 채워짐
   populateDongFilter();
   renderTeamRestaurantChecklist();
 
