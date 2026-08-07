@@ -546,7 +546,7 @@ document.getElementById('toggleDeleteModeBtn').addEventListener('click', () => {
   if (restaurantDeleteModeActive) {
     // 이미 켜져있으면 그냥 끄기 (다시 물어볼 필요 없음)
     restaurantDeleteModeActive = false;
-    document.getElementById('toggleDeleteModeBtn').textContent = '[식당삭제]';
+    document.getElementById('toggleDeleteModeBtn').textContent = '식당삭제';
     renderTeamRestaurantChecklist();
     return;
   }
@@ -556,7 +556,7 @@ document.getElementById('toggleDeleteModeBtn').addEventListener('click', () => {
   if (pw !== RESTAURANT_DELETE_PASSWORD) { alert('비밀번호가 일치하지 않습니다.'); return; }
 
   restaurantDeleteModeActive = true;
-  document.getElementById('toggleDeleteModeBtn').textContent = '[삭제 모드 끄기]';
+  document.getElementById('toggleDeleteModeBtn').textContent = '삭제 모드 끄기';
   renderTeamRestaurantChecklist();
 });
 
@@ -790,56 +790,127 @@ function renderAdminTable() {
   window._adminMatrix = { members, restaurantIds, matrix, rowTotals, colTotals, grandTotal, monthSel };
 }
 
-document.getElementById('exportExcelBtn').addEventListener('click', () => {
+async function exportAdminExcel() {
   const m = window._adminMatrix;
   if (!m || m.members.length === 0) { alert('데이터가 없습니다.'); return; }
 
-  const monthNum = parseInt(m.monthSel.split('-')[1], 10); // "2026-08" -> 8
-  const PAYMENT_METHOD = '제로페이Biz'; // 지금은 결제방법을 한 종류로만 다루고 있어 고정값으로 둠
+  const exportBtn = document.getElementById('exportExcelBtn');
+  exportBtn.disabled = true;
 
-  // 업로드해주신 양식과 동일한 구조: 연번 / 식당명 / 금액 / 정산방법 / 팀원... / 식 합계 / 전화번호
-  const titleRow = [`${monthNum}월  급식비 사용내역`];
-  const blankRow = [];
-  const header = ['연 번', '식  당  명', '금    액', '정산방법', ...m.members, '식 합계', '전화번호'];
+  try {
+    const monthNum = parseInt(m.monthSel.split('-')[1], 10); // "2026-08" -> 8
+    const PAYMENT_METHOD = '제로페이Biz'; // 지금은 결제방법을 한 종류로만 다루고 있어 고정값으로 둠
 
-  const body = m.restaurantIds.map((rid, idx) => {
-    const restaurant = restaurantsCache.find(r => r.id === rid);
-    const label = restaurantLabel(rid);
-    const amount = m.rowTotals[rid] * AVG_PRICE;
-    return [
-      idx + 1,
-      label,
-      amount,
-      rid === UNKNOWN_ID ? '' : PAYMENT_METHOD,
-      ...m.members.map(mem => m.matrix[rid][mem] || ''), // 0은 양식처럼 빈 칸으로 (사용 있는 칸만 숫자)
-      m.rowTotals[rid],
-      (restaurant && restaurant.phone) || ''
+    const headerLabels = ['연 번', '식  당  명', '금    액', '정산방법', ...m.members, '식 합계', '전화번호'];
+    const colCount = headerLabels.length;
+    const amountColIdx = 3;       // "금액" 열 (1-indexed)
+    const sikTotalColIdx = colCount - 1; // "식 합계" 열
+
+    const thinBorder = {
+      top: { style: 'thin' }, bottom: { style: 'thin' },
+      left: { style: 'thin' }, right: { style: 'thin' }
+    };
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('사용처별 내역');
+
+    // 제목 행 - 병합, 굵게, 가운데 정렬
+    sheet.mergeCells(1, 1, 1, colCount);
+    const titleCell = sheet.getCell(1, 1);
+    titleCell.value = `${monthNum}월  급식비 사용내역`;
+    titleCell.font = { bold: true, size: 16, name: '맑은 고딕' };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet.getRow(1).height = 28;
+
+    // 2행은 원본 양식처럼 빈 줄로 비워둠
+
+    // 헤더 행(3행) - 굵게, 흰 글씨, 회색 배경, 테두리
+    const headerRow = sheet.getRow(3);
+    headerLabels.forEach((label, i) => {
+      const cell = headerRow.getCell(i + 1);
+      cell.value = label;
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, name: '맑은 고딕', size: 11 };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF969696' } };
+      cell.border = thinBorder;
+    });
+    headerRow.height = 20;
+
+    // 데이터 행 - 테두리, 금액/식합계는 천단위 콤마
+    m.restaurantIds.forEach((rid, idx) => {
+      const rowIdx = 4 + idx;
+      const restaurant = restaurantsCache.find(r => r.id === rid);
+      const label = restaurantLabel(rid);
+      const amount = m.rowTotals[rid] * AVG_PRICE;
+      const rowValues = [
+        idx + 1, label, amount, rid === UNKNOWN_ID ? '' : PAYMENT_METHOD,
+        ...m.members.map(mem => m.matrix[rid][mem] || ''), // 0은 원본 양식처럼 빈 칸으로
+        m.rowTotals[rid],
+        (restaurant && restaurant.phone) || ''
+      ];
+      const row = sheet.getRow(rowIdx);
+      rowValues.forEach((val, i) => {
+        const col = i + 1;
+        const cell = row.getCell(col);
+        cell.value = val;
+        cell.border = thinBorder;
+        cell.font = { name: '맑은 고딕', size: 11 };
+        cell.alignment = { horizontal: col === 2 ? 'left' : 'center', vertical: 'middle' };
+        if (col === amountColIdx + 1 || col === sikTotalColIdx + 1) cell.numFmt = '#,##0';
+      });
+    });
+
+    // 소계 행 - 연번+식당명 병합, 배경색(살구색), 금액 천단위 콤마
+    const subtotalRowIdx = 4 + m.restaurantIds.length;
+    sheet.mergeCells(subtotalRowIdx, 1, subtotalRowIdx, 2);
+    const subtotalValues = [
+      `소계(${PAYMENT_METHOD})`, '',
+      m.grandTotal * AVG_PRICE, '',
+      ...m.members.map(mem => m.colTotals[mem]),
+      m.grandTotal, ''
     ];
-  });
+    const subtotalRow = sheet.getRow(subtotalRowIdx);
+    subtotalValues.forEach((val, i) => {
+      const col = i + 1;
+      const cell = subtotalRow.getCell(col);
+      cell.value = val;
+      cell.border = thinBorder;
+      cell.font = { name: '맑은 고딕', size: 11, bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFCC99' } };
+      cell.alignment = { horizontal: col === 1 ? 'left' : 'center', vertical: 'middle' };
+      if (col === amountColIdx + 1) cell.numFmt = '#,##0';
+    });
 
-  const subtotalRow = [
-    `소계(${PAYMENT_METHOD})`, '',
-    m.grandTotal * AVG_PRICE, '',
-    ...m.members.map(mem => m.colTotals[mem]),
-    m.grandTotal, ''
-  ];
+    // 열 너비
+    sheet.getColumn(1).width = 6;
+    sheet.getColumn(2).width = 18;
+    sheet.getColumn(3).width = 10;
+    sheet.getColumn(4).width = 12;
+    m.members.forEach((_, i) => { sheet.getColumn(5 + i).width = 8; });
+    sheet.getColumn(sikTotalColIdx + 1).width = 8;
+    sheet.getColumn(colCount).width = 14;
 
-  const aoa = [titleRow, blankRow, header, ...body, subtotalRow];
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const orgLabelForFile = session.team ? `${session.dept}_${session.team}` : session.dept;
 
-  const colCount = header.length;
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: colCount - 1 } }]; // 제목 행 병합
-  ws['!cols'] = [
-    { wch: 6 }, { wch: 18 }, { wch: 10 }, { wch: 12 },
-    ...m.members.map(() => ({ wch: 8 })),
-    { wch: 8 }, { wch: 14 }
-  ];
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `식권정산_${orgLabelForFile}_${m.monthSel}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(err);
+    alert('엑셀 생성 중 문제가 발생했어요.');
+  } finally {
+    exportBtn.disabled = false;
+  }
+}
+document.getElementById('exportExcelBtn').addEventListener('click', exportAdminExcel);
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "사용처별 내역");
-  const orgLabelForFile = session.team ? `${session.dept}_${session.team}` : session.dept;
-  XLSX.writeFile(wb, `식권정산_${orgLabelForFile}_${m.monthSel}.xlsx`);
-});
 
 /* ============ 밥장: 팀원 식권 수정 ============ */
 function openMemberEditModal() {
