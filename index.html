@@ -184,6 +184,19 @@
 
     <div id="memberEntryList" style="max-height:280px; overflow-y:auto; margin-top:10px;"></div>
 
+    <div style="margin-top:14px; padding-top:14px; border-top:1px solid #eee;">
+      <p style="font-size:13px; font-weight:500; margin-bottom:8px;">새 식권 추가</p>
+      <div class="form-row" style="flex-wrap:wrap; margin-bottom:8px;">
+        <input type="date" id="memberAddDateInput">
+        <select id="memberAddRestaurantSelect" style="flex:1; min-width:140px;"></select>
+        <input type="number" id="memberAddCountInput" placeholder="장수" min="1" style="width:70px;">
+      </div>
+      <label style="display:flex; align-items:center; gap:6px; font-size:13px; margin-bottom:10px;">
+        <input type="checkbox" id="memberAddSpecialCheck"> 비상근무 특별식권 (월 한도 예외)
+      </label>
+      <button class="primary" id="memberAddEntryBtn">추가</button>
+    </div>
+
     <div style="display:flex; justify-content:flex-end; margin-top:14px;">
       <button id="memberEditCloseBtn">닫기</button>
     </div>
