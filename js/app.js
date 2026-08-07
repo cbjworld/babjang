@@ -1,3 +1,15 @@
+/* ============ Firestore 요청 타임아웃 헬퍼 ============ */
+// 사내망 방화벽 등으로 firestore.googleapis.com에 연결이 안 되면 요청이 응답 없이 계속 대기할 수 있어서,
+// 일정 시간(기본 10초) 안에 응답이 없으면 에러로 처리해 최소한 화면에 메시지는 뜨게 함
+function withTimeout(promise, ms = 10000, label = '요청') {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label}이(가) ${ms/1000}초 안에 응답하지 않았어요. 네트워크(사내망 방화벽 등)에서 Firebase 접속이 막혀있을 수 있어요.`)), ms)
+    )
+  ]);
+}
+
 /* ============ 쿠키 유틸 ============ */
 function setCookie(name, value, days) {
   try {
@@ -54,7 +66,7 @@ async function doLogin() {
     const hasTeams = teamField.style.display !== 'none';
     const team = hasTeams ? teamSelect.value : null; // 부구청장/각 국은 팀이 없음
     const groupKey = makeGroupKey(dept, team);
-    const { member, error } = await registerOrLogin(groupKey, name, password);
+    const { member, error } = await withTimeout(registerOrLogin(groupKey, name, password), 10000, '로그인 확인');
     if (error) { alert(error); return; }
 
     session = {
