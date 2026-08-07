@@ -837,7 +837,7 @@ async function exportAdminExcel() {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF969696' } };
       if (col <= 4) cell.border = thinBorder; // E열부터는 선 적용 없음
     });
-    headerRow.height = 30;
+    headerRow.height = 25;
 
     // 데이터 행 - A~D열만 테두리, 식당명(B열)은 줄바꿈으로 텍스트 전체 표시, 금액은 회계 서식, 식합계는 천단위 콤마
     m.restaurantIds.forEach((rid, idx) => {
@@ -862,14 +862,14 @@ async function exportAdminExcel() {
         if (col === amountColIdx) cell.numFmt = ACCOUNTING_FMT;
         else if (col === sikTotalColIdx) cell.numFmt = '#,##0';
       });
-      row.height = 30;
+      row.height = 25;
     });
 
     // 소계 행 - 연번+식당명 병합, 배경색(살구색), 금액 회계 서식, A~D열만 테두리
     const subtotalRowIdx = 4 + m.restaurantIds.length;
     sheet.mergeCells(subtotalRowIdx, 1, subtotalRowIdx, 2);
     const subtotalValues = [
-      `소계(${PAYMENT_METHOD})`, '',
+      '합  계', '',
       m.grandTotal * AVG_PRICE, '',
       ...m.members.map(mem => m.colTotals[mem]),
       m.grandTotal, ''
@@ -885,11 +885,11 @@ async function exportAdminExcel() {
       cell.alignment = { horizontal: col === 1 ? 'left' : 'center', vertical: 'middle' };
       if (col === amountColIdx) cell.numFmt = ACCOUNTING_FMT;
     });
-    subtotalRow.height = 30;
+    subtotalRow.height = 25;
 
     // 열 너비 - B열(식당명)은 긴 이름도 줄바꿈으로 다 보이게 넉넉히, C열(금액)은 15
     sheet.getColumn(1).width = 6;
-    sheet.getColumn(2).width = 22;
+    sheet.getColumn(2).width = 35;
     sheet.getColumn(3).width = 15;
     sheet.getColumn(4).width = 12;
     m.members.forEach((_, i) => { sheet.getColumn(5 + i).width = 8; });
