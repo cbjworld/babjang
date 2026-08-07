@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>식권관리 프로토타입</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<!-- =================== 화면 1: 로그인 =================== -->
+<div id="screen-login" class="screen active">
+  <div class="login-box">
+    <h1>식권관리 시작하기</h1>
+    <p class="muted">처음이면 이름/비밀번호로 등록되고, 다음부터는 같은 정보로 로그인돼요</p>
+
+    <div class="field">
+      <label>부서 선택</label>
+      <select id="departmentSelect"></select>
+    </div>
+
+    <div class="field">
+      <label>팀 선택</label>
+      <select id="teamSelect"></select>
+    </div>
+
+    <div class="field">
+      <label>이름</label>
+      <input type="text" id="nameInput" placeholder="이름을 입력하세요">
+    </div>
+
+    <div class="field">
+      <label>비밀번호</label>
+      <input type="password" id="passwordInput" placeholder="비밀번호를 입력하세요">
+    </div>
+
+    <button class="primary" id="loginBtn">시작하기</button>
+  </div>
+</div>
+
+<!-- =================== 화면 2: 메인(캘린더) =================== -->
+<div id="screen-main" class="screen">
+  <div class="topbar">
+    <div class="who">부서: <b id="whoTeam">-</b> · 이름: <b id="whoName">-</b></div>
+    <div>
+      <button id="toAdminBtn" style="display:none;">밥장 관리 화면</button>
+      <button id="logoutBtn">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="main-layout">
+    <div class="calendar-panel">
+      <div class="cal-header">
+        <button id="prevMonthBtn">← 이전달</button>
+        <span class="month-label" id="monthLabel">2026년 8월</span>
+        <button id="nextMonthBtn">다음달 →</button>
+      </div>
+
+      <div class="monthly-gauge" id="monthlyGauge"></div>
+
+      <div class="cal-grid" id="calGrid"></div>
+
+      <div class="entry-panel" id="entryPanel" style="display:none;">
+        <h3 id="entryDateLabel">8월 7일 (금) 식권 사용</h3>
+        <div class="total-note" id="entryTotalNote">이 날 입력: 0건</div>
+        <div id="entryList"></div>
+        <p class="muted" style="margin-top:10px; margin-bottom:0;">오른쪽 식당 목록에서 식당을 클릭하면 추가할 수 있어요</p>
+      </div>
+    </div>
+
+    <div class="restaurant-panel">
+      <h3>식당 목록 · 클릭해서 추가</h3>
+      <input type="text" id="restaurantSearch" placeholder="식당 이름/동네 검색..." style="width:100%; margin-bottom:10px;">
+      <div id="restaurantList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- =================== 식권 입력/수정 모달 =================== -->
+<div id="entryModalOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3 id="modalRestaurantName">식당명</h3>
+    <p class="muted" id="modalDateLabel" style="margin-bottom:16px;">8월 7일 (금)</p>
+
+    <div class="field">
+      <label>장수</label>
+      <input type="number" id="modalCountInput" min="1" placeholder="장수 입력" style="width:100%;">
+    </div>
+
+    <label style="display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:18px;">
+      <input type="checkbox" id="modalSpecialCheck"> 비상근무 특별식권 (월 한도 예외)
+    </label>
+
+    <div style="display:flex; gap:8px; justify-content:flex-end;">
+      <button id="modalCancelBtn">취소</button>
+      <button class="primary" id="modalSaveBtn">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- =================== 화면 3: 밥장 관리 =================== -->
+<div id="screen-admin" class="screen">
+  <div class="topbar">
+    <div class="who">밥장 관리 · <b id="adminTeamLabel">-</b></div>
+    <button id="backToMainBtn">← 캘린더로 돌아가기</button>
+  </div>
+
+  <div id="babjangHandoffSection" style="background:#fff; border:1px solid #ddd; border-radius:6px; padding:16px; margin-bottom:24px; display:none;">
+    <h3 style="font-size:15px; margin-bottom:4px;">밥장 넘기기</h3>
+    <p class="muted" style="margin-bottom:12px;">우리 팀 다른 팀원에게 밥장 권한을 넘길 수 있어요. 넘기면 본인은 밥장이 아니게 됩니다.</p>
+    <div id="babjangHandoffList"></div>
+  </div>
+
+  <div class="admin-controls">
+    <div>
+      <label style="font-size:13px; margin-right:6px;">정산 월</label>
+      <select id="adminMonthSelect"></select>
+    </div>
+    <button id="exportExcelBtn">엑셀로 다운로드</button>
+  </div>
+
+  <div style="background:#fff; border:1px solid #ddd; border-radius:6px; padding:16px; margin-bottom:24px;">
+    <h3 style="font-size:15px; margin-bottom:4px;">우리 팀 식당 관리</h3>
+    <p class="muted" style="margin-bottom:12px;">전체 식당 목록은 구청 전 부서·동이 공유해요. 우리 팀원이 쓸 식당만 체크하세요.</p>
+
+    <div class="form-row" style="margin-bottom:10px;">
+      <select id="dongFilterSelect" style="min-width:140px;"></select>
+      <label style="display:flex; align-items:center; gap:6px; font-size:13px; margin-left:auto;">
+        <input type="checkbox" id="selectAllCheck"> 목록 전체선택
+      </label>
+    </div>
+
+    <div id="teamRestaurantChecklist" class="checklist-box"></div>
+
+    <div style="margin-top:16px; padding-top:14px; border-top:1px solid #eee;">
+      <p style="font-size:13px; font-weight:500; margin-bottom:8px;">목록에 없는 식당 추가하기</p>
+      <div class="form-row">
+        <input type="text" id="newRestaurantName" placeholder="식당 이름">
+        <select id="newRestaurantDong"></select>
+        <button class="primary" id="addRestaurantBtn">추가</button>
+      </div>
+    </div>
+  </div>
+
+  <table id="adminTable">
+    <thead id="adminTableHead"></thead>
+    <tbody id="adminTableBody"></tbody>
+    <tfoot id="adminTableFoot"></tfoot>
+  </table>
+  <p class="muted" id="adminFootNote" style="margin-top:10px;">※ 비상근무 특별식권, 기억안남 항목도 장수에 합산되어 있습니다. 식당명을 클릭하면 결제 QR을 볼 수 있어요.</p>
+</div>
+
+<!-- =================== 결제 QR 모달 =================== -->
+<div id="qrModalOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3 id="qrModalRestaurantName">식당명</h3>
+    <p class="muted" style="margin-bottom:14px;">결제 QR 이미지</p>
+
+    <div id="qrPreviewWrap" style="text-align:center; margin-bottom:14px;">
+      <img id="qrPreviewImg" src="" style="max-width:100%; max-height:220px; display:none; border:1px solid #ddd; border-radius:4px;">
+      <p id="qrEmptyNote" class="muted">등록된 결제 QR이 없습니다.</p>
+    </div>
+
+    <div class="field">
+      <label>새 QR 이미지 업로드</label>
+      <input type="file" id="qrFileInput" accept="image/*" style="width:100%;">
+    </div>
+
+    <div id="qrCropSection" style="display:none; margin-bottom:14px;">
+      <p class="muted" style="margin-bottom:6px;">QR 부분만 드래그로 선택한 뒤 잘라내세요</p>
+      <div class="qr-crop-wrap" id="qrCropWrap">
+        <canvas id="qrCropCanvas"></canvas>
+        <div id="qrCropSelection" class="qr-crop-selection"></div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button id="qrCropApplyBtn">선택 영역 자르기</button>
+        <button id="qrUseFullBtn">전체 이미지 사용</button>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; justify-content:space-between; margin-top:10px;">
+      <button id="qrDeleteBtn">QR 삭제</button>
+      <div style="display:flex; gap:8px;">
+        <button id="qrCancelBtn">닫기</button>
+        <button class="primary" id="qrSaveBtn">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
