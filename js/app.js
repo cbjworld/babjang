@@ -810,12 +810,14 @@ async function exportAdminExcel() {
       top: { style: 'thin' }, bottom: { style: 'thin' },
       left: { style: 'thin' }, right: { style: 'thin' }
     };
+    // 원본 양식과 동일한 회계 표시형식 (0은 "-"로, 통화기호 없이 천단위 콤마)
+    const ACCOUNTING_FMT = '_-* #,##0_-;-* #,##0_-;_-* "-"_-;_-@_-';
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('사용처별 내역');
 
-    // 제목 행 - 병합, 굵게, 가운데 정렬
-    sheet.mergeCells(1, 1, 1, colCount);
+    // 제목 행 - A~D열까지만 병합, 굵게, 가운데 정렬
+    sheet.mergeCells(1, 1, 1, 4);
     const titleCell = sheet.getCell(1, 1);
     titleCell.value = `${monthNum}월  급식비 사용내역`;
     titleCell.font = { bold: true, size: 16, name: '맑은 고딕' };
@@ -834,9 +836,9 @@ async function exportAdminExcel() {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF969696' } };
       cell.border = thinBorder;
     });
-    headerRow.height = 20;
+    headerRow.height = 16.5;
 
-    // 데이터 행 - 테두리, 금액/식합계는 천단위 콤마
+    // 데이터 행 - 테두리(기본 실선), 식당명은 가운데 정렬, 금액은 회계 서식, 식합계는 천단위 콤마
     m.restaurantIds.forEach((rid, idx) => {
       const rowIdx = 4 + idx;
       const restaurant = restaurantsCache.find(r => r.id === rid);
@@ -855,12 +857,14 @@ async function exportAdminExcel() {
         cell.value = val;
         cell.border = thinBorder;
         cell.font = { name: '맑은 고딕', size: 11 };
-        cell.alignment = { horizontal: col === 2 ? 'left' : 'center', vertical: 'middle' };
-        if (col === amountColIdx + 1 || col === sikTotalColIdx + 1) cell.numFmt = '#,##0';
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        if (col === amountColIdx + 1) cell.numFmt = ACCOUNTING_FMT;
+        else if (col === sikTotalColIdx + 1) cell.numFmt = '#,##0';
       });
+      row.height = 16.5;
     });
 
-    // 소계 행 - 연번+식당명 병합, 배경색(살구색), 금액 천단위 콤마
+    // 소계 행 - 연번+식당명 병합, 배경색(살구색), 금액 회계 서식
     const subtotalRowIdx = 4 + m.restaurantIds.length;
     sheet.mergeCells(subtotalRowIdx, 1, subtotalRowIdx, 2);
     const subtotalValues = [
@@ -878,8 +882,9 @@ async function exportAdminExcel() {
       cell.font = { name: '맑은 고딕', size: 11, bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFCC99' } };
       cell.alignment = { horizontal: col === 1 ? 'left' : 'center', vertical: 'middle' };
-      if (col === amountColIdx + 1) cell.numFmt = '#,##0';
+      if (col === amountColIdx + 1) cell.numFmt = ACCOUNTING_FMT;
     });
+    subtotalRow.height = 16.5;
 
     // 열 너비
     sheet.getColumn(1).width = 6;
