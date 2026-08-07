@@ -23,10 +23,17 @@ function showScreen(id) {
 /* ============ 로그인 화면 로직 ============ */
 const departmentSelect = document.getElementById('departmentSelect');
 const teamSelect = document.getElementById('teamSelect');
+const teamField = document.getElementById('teamField');
 departmentSelect.innerHTML = DEPARTMENT_LIST.map(d => `<option value="${d}">${d}</option>`).join('');
 
 function populateLoginTeamOptions(dept) {
-  const teams = TEAMS_BY_DEPT[dept] || [];
+  const teams = TEAMS_BY_DEPT[dept]; // 목록에 없으면(부구청장/각 국) undefined
+  if (!teams || teams.length === 0) {
+    teamField.style.display = 'none';
+    teamSelect.innerHTML = '';
+    return;
+  }
+  teamField.style.display = 'block';
   teamSelect.innerHTML = teams.map(t => `<option value="${t}">${t}</option>`).join('');
 }
 departmentSelect.addEventListener('change', (e) => populateLoginTeamOptions(e.target.value));
@@ -39,7 +46,8 @@ document.getElementById('loginBtn').addEventListener('click', () => {
   if (!password) { alert('비밀번호를 입력해주세요.'); return; }
 
   const dept = departmentSelect.value;
-  const team = teamSelect.value;
+  const hasTeams = teamField.style.display !== 'none';
+  const team = hasTeams ? teamSelect.value : null; // 부구청장/각 국은 팀이 없음
   const groupKey = makeGroupKey(dept, team);
   const { member, error } = registerOrLogin(groupKey, name, password);
   if (error) { alert(error); return; }
@@ -73,7 +81,7 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 });
 
 function enterMainScreen() {
-  document.getElementById('whoTeam').textContent = `${session.dept} · ${session.team}`;
+  document.getElementById('whoTeam').textContent = formatOrgLabel(session.dept, session.team);
   document.getElementById('whoName').textContent = session.name + (session.isBabjang ? ' (밥장)' : '');
   document.getElementById('toAdminBtn').style.display = session.isBabjang ? 'inline-block' : 'none';
   renderRestaurantList();
@@ -467,7 +475,7 @@ document.getElementById('addRestaurantBtn').addEventListener('click', () => {
 
 /* ============ 밥장 관리 화면: 인원 x 식당 기준 집계 ============ */
 document.getElementById('toAdminBtn').addEventListener('click', () => {
-  document.getElementById('adminTeamLabel').textContent = `${session.dept} · ${session.team}`;
+  document.getElementById('adminTeamLabel').textContent = formatOrgLabel(session.dept, session.team);
   renderBabjangHandoffSection();
   populateDongFilter();
   renderTeamRestaurantChecklist();
@@ -575,7 +583,8 @@ document.getElementById('exportExcelBtn').addEventListener('click', () => {
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "식권정산");
-  XLSX.writeFile(wb, `식권정산_${session.dept}_${session.team}_${m.monthSel}.xlsx`);
+  const orgLabelForFile = session.team ? `${session.dept}_${session.team}` : session.dept;
+  XLSX.writeFile(wb, `식권정산_${orgLabelForFile}_${m.monthSel}.xlsx`);
 });
 
 /* ============ 결제 QR 모달 (밥장 전용, 웹 화면에서만 표시 - 엑셀엔 포함 안 됨) ============ */
