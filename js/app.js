@@ -219,6 +219,7 @@ function renderCalendar() {
   }
 
   renderMonthlyGauge();
+  renderMyMonthSummary();
 }
 function formatDate(y, m, d) {
   return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
@@ -238,6 +239,52 @@ function renderMonthlyGauge() {
   document.getElementById('monthlyGauge').innerHTML = `
     이번 달 일반 식권 사용: <b>${total} / ${MONTHLY_LIMIT}장</b>${over ? ' (초과 - 특별식권만 추가 가능)' : ''}
     <div class="bar-bg"><div class="bar-fill ${over ? 'over' : ''}" style="width:${pct}%"></div></div>
+  `;
+}
+
+// 이번 달에 사용한 식당을 식당별로 합쳐서 표로 보여줌 (사용량 0인 건 애초에 목록에 없어서 자연히 빠짐)
+function renderMyMonthSummary() {
+  const wrap = document.getElementById('myMonthSummary');
+  if (!wrap) return;
+
+  const totals = {}; // restaurantId -> { count, special }
+  myMonthEntries.forEach(e => {
+    if (!totals[e.restaurantId]) totals[e.restaurantId] = { count: 0, special: false };
+    totals[e.restaurantId].count += e.count;
+    if (e.special) totals[e.restaurantId].special = true;
+  });
+
+  const rows = Object.entries(totals)
+    .filter(([, v]) => v.count > 0)
+    .map(([rid, v]) => ({
+      rid,
+      count: v.count,
+      special: v.special,
+      name: rid === UNKNOWN_ID ? '🤷 어디였는지 기억 안남' : (restaurantsCache.find(r => r.id === rid)?.name || '알수없음')
+    }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ko'));
+
+  if (rows.length === 0) {
+    wrap.innerHTML = '<p class="muted" style="margin-top:14px;">이번 달 사용한 식당이 아직 없습니다.</p>';
+    return;
+  }
+
+  wrap.innerHTML = `
+    <h3 style="font-size:14px; margin:16px 0 8px;">이번 달 사용 요약</h3>
+    <table style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left; border-bottom:1px solid #ddd; padding:6px 4px; font-size:13px; color:#555;">식당</th>
+          <th style="text-align:right; border-bottom:1px solid #ddd; padding:6px 4px; font-size:13px; color:#555;">장수</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => `<tr>
+          <td style="padding:6px 4px; font-size:13px; border-bottom:1px dashed #eee;">${r.name}${r.special ? ' <span class="tag">특별식권</span>' : ''}</td>
+          <td style="padding:6px 4px; font-size:13px; text-align:right; border-bottom:1px dashed #eee;">${r.count}장</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
   `;
 }
 
