@@ -826,19 +826,20 @@ async function exportAdminExcel() {
 
     // 2행은 원본 양식처럼 빈 줄로 비워둠
 
-    // 헤더 행(3행) - 굵게, 흰 글씨, 회색 배경, 테두리
+    // 헤더 행(3행) - 굵게, 흰 글씨, 회색 배경, A~D열만 테두리
     const headerRow = sheet.getRow(3);
     headerLabels.forEach((label, i) => {
-      const cell = headerRow.getCell(i + 1);
+      const col = i + 1;
+      const cell = headerRow.getCell(col);
       cell.value = label;
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, name: '맑은 고딕', size: 11 };
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF969696' } };
-      cell.border = thinBorder;
+      if (col <= 4) cell.border = thinBorder; // E열부터는 선 적용 없음
     });
-    headerRow.height = 16.5;
+    headerRow.height = 30;
 
-    // 데이터 행 - 테두리(기본 실선), 식당명은 가운데 정렬, 금액은 회계 서식, 식합계는 천단위 콤마
+    // 데이터 행 - A~D열만 테두리, 식당명(B열)은 줄바꿈으로 텍스트 전체 표시, 금액은 회계 서식, 식합계는 천단위 콤마
     m.restaurantIds.forEach((rid, idx) => {
       const rowIdx = 4 + idx;
       const restaurant = restaurantsCache.find(r => r.id === rid);
@@ -855,16 +856,16 @@ async function exportAdminExcel() {
         const col = i + 1;
         const cell = row.getCell(col);
         cell.value = val;
-        cell.border = thinBorder;
+        if (col <= 4) cell.border = thinBorder; // E열부터는 선 적용 없음
         cell.font = { name: '맑은 고딕', size: 11 };
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        if (col === amountColIdx + 1) cell.numFmt = ACCOUNTING_FMT;
-        else if (col === sikTotalColIdx + 1) cell.numFmt = '#,##0';
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: col === 2 };
+        if (col === amountColIdx) cell.numFmt = ACCOUNTING_FMT;
+        else if (col === sikTotalColIdx) cell.numFmt = '#,##0';
       });
-      row.height = 16.5;
+      row.height = 30;
     });
 
-    // 소계 행 - 연번+식당명 병합, 배경색(살구색), 금액 회계 서식
+    // 소계 행 - 연번+식당명 병합, 배경색(살구색), 금액 회계 서식, A~D열만 테두리
     const subtotalRowIdx = 4 + m.restaurantIds.length;
     sheet.mergeCells(subtotalRowIdx, 1, subtotalRowIdx, 2);
     const subtotalValues = [
@@ -878,21 +879,21 @@ async function exportAdminExcel() {
       const col = i + 1;
       const cell = subtotalRow.getCell(col);
       cell.value = val;
-      cell.border = thinBorder;
+      if (col <= 4) cell.border = thinBorder; // E열부터는 선 적용 없음
       cell.font = { name: '맑은 고딕', size: 11, bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFCC99' } };
       cell.alignment = { horizontal: col === 1 ? 'left' : 'center', vertical: 'middle' };
-      if (col === amountColIdx + 1) cell.numFmt = ACCOUNTING_FMT;
+      if (col === amountColIdx) cell.numFmt = ACCOUNTING_FMT;
     });
-    subtotalRow.height = 16.5;
+    subtotalRow.height = 30;
 
-    // 열 너비
+    // 열 너비 - B열(식당명)은 긴 이름도 줄바꿈으로 다 보이게 넉넉히, C열(금액)은 15
     sheet.getColumn(1).width = 6;
-    sheet.getColumn(2).width = 18;
-    sheet.getColumn(3).width = 10;
+    sheet.getColumn(2).width = 22;
+    sheet.getColumn(3).width = 15;
     sheet.getColumn(4).width = 12;
     m.members.forEach((_, i) => { sheet.getColumn(5 + i).width = 8; });
-    sheet.getColumn(sikTotalColIdx + 1).width = 8;
+    sheet.getColumn(sikTotalColIdx).width = 8;
     sheet.getColumn(colCount).width = 14;
 
     const buffer = await workbook.xlsx.writeBuffer();
