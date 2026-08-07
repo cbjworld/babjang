@@ -4,12 +4,13 @@
 // 이미 등록된 식당(이름+동이 같은 경우)은 건너뛰기 때문에, restaurants-data.js에
 // 새 동을 채워넣고 다시 실행해도 안전합니다 (중복 등록 안 됨).
 
-const admin = require('firebase-admin');
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
 const serviceAccount = require('./serviceAccountKey.json'); // 콘솔에서 받은 키 파일 (직접 준비해야 함)
 const restaurantsByDong = require('./restaurants-data.js');
 
-admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-const db = admin.firestore();
+initializeApp({ credential: cert(serviceAccount) });
+const db = getFirestore();
 
 async function seed() {
   // 이미 등록된 (이름, 동) 조합을 미리 읽어서 중복 방지
