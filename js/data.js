@@ -240,6 +240,8 @@ let selectedRestaurantId = null; // 현재 입력 폼에서 클릭으로 선택�
 let myMonthEntries = []; // [{id, date, restaurantId, count, special, unknown}]
 // 밥장 관리 화면에서 쓰는 "우리 팀 전체 식권 기록" 캐시 (월 필터는 화면단에서)
 let teamAllEntries = [];
+// 밥장 관리 화면용 - 우리 팀 전체 팀원 명단 캐시 (엑셀/매트릭스에서 사용량 0인 팀원도 표시하기 위함)
+let teamMembersCache = [];
 // 우리 팀이 쓸 수 있는 식당 id 집합 캐시 - loadTeamEnabledIds()로 채움
 let teamEnabledIds = new Set();
 

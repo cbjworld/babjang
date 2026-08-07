@@ -496,6 +496,8 @@ function populateDongFilter() {
   sel.onchange = renderTeamRestaurantChecklist;
 }
 
+let restaurantDeleteModeActive = false;
+
 function renderTeamRestaurantChecklist() {
   const wrap = document.getElementById('teamRestaurantChecklist');
   const dongFilter = document.getElementById('dongFilterSelect').value;
@@ -516,7 +518,7 @@ function renderTeamRestaurantChecklist() {
         <input type="checkbox" data-rid="${r.id}" ${teamEnabledIds.has(r.id) ? 'checked' : ''}>
         <span>${r.name} <span style="color:#999; font-size:11px;">(${r.dong})</span></span>
       </label>
-      <button class="restaurant-delete-btn" data-rid="${r.id}" data-rname="${r.name}" title="식당 삭제">✕</button>
+      ${restaurantDeleteModeActive ? `<button class="restaurant-delete-btn" data-rid="${r.id}" data-rname="${r.name}" title="식당 삭제">✕</button>` : ''}
     </div>
   `).join('') + `</div>`;
 
@@ -540,10 +542,25 @@ function renderTeamRestaurantChecklist() {
 // 식당 삭제는 되돌릴 수 없는 중요한 작업이라 확인 비밀번호를 한 번 더 물어봄
 const RESTAURANT_DELETE_PASSWORD = "최병주사마";
 
-async function deleteRestaurant(restaurantId, restaurantName) {
-  const pw = prompt(`"${restaurantName}"을(를) 삭제합니다.\n중요한 작업이라 확인 비밀번호가 필요해요.`);
+document.getElementById('toggleDeleteModeBtn').addEventListener('click', () => {
+  if (restaurantDeleteModeActive) {
+    // 이미 켜져있으면 그냥 끄기 (다시 물어볼 필요 없음)
+    restaurantDeleteModeActive = false;
+    document.getElementById('toggleDeleteModeBtn').textContent = '[식당삭제]';
+    renderTeamRestaurantChecklist();
+    return;
+  }
+
+  const pw = prompt('식당 삭제는 중요한 작업이라 확인 비밀번호가 필요해요.');
   if (pw === null) return; // 취소
   if (pw !== RESTAURANT_DELETE_PASSWORD) { alert('비밀번호가 일치하지 않습니다.'); return; }
+
+  restaurantDeleteModeActive = true;
+  document.getElementById('toggleDeleteModeBtn').textContent = '[삭제 모드 끄기]';
+  renderTeamRestaurantChecklist();
+});
+
+async function deleteRestaurant(restaurantId, restaurantName) {
   if (!confirm(`정말 "${restaurantName}"을(를) 삭제할까요?\n(과거 식권 사용 기록은 그대로 남아있고, 식당 목록에서만 사라져요)`)) return;
 
   try {
@@ -670,6 +687,7 @@ document.getElementById('toAdminBtn').addEventListener('click', async () => {
 
   try {
     await loadTeamAllEntries(session.groupKey);
+    teamMembersCache = await getTeamMembers(session.groupKey);
   } catch (err) {
     console.error(err);
     alert('식권 기록을 불러오는 중 문제가 발생했어요.');
@@ -698,22 +716,25 @@ function restaurantLabel(id) {
   return restaurantsCache.find(r => r.id === id)?.name || '알수없음';
 }
 
-// 식당(행) x 팀원(열) 매트릭스 생성
+// 식당(행) x 팀원(열) 매트릭스 생성 - 팀 전체 명단/활성화된 식당 전체를 기준으로 하고, 사용량 0인 것도 행/열에 포함시킴
 function buildAdminMatrix(monthSel) {
   const monthLogs = teamAllEntries.filter(e => e.date.startsWith(monthSel));
 
-  const members = [...new Set(monthLogs.map(e => e.member))].sort((a,b) => a.localeCompare(b));
-  const restaurantIds = [...new Set(monthLogs.map(e => e.restaurantId))];
-  // 등록된 식당 순서 우선, 기억안남은 맨 뒤로
-  restaurantIds.sort((a,b) => {
-    if (a === UNKNOWN_ID) return 1;
-    if (b === UNKNOWN_ID) return -1;
-    return restaurantsCache.findIndex(r=>r.id===a) - restaurantsCache.findIndex(r=>r.id===b);
-  });
+  const members = teamMembersCache.length > 0
+    ? teamMembersCache.map(m => m.name).sort((a, b) => a.localeCompare(b, 'ko'))
+    : [...new Set(monthLogs.map(e => e.member))].sort((a, b) => a.localeCompare(b, 'ko'));
+
+  const enabledRestaurants = sortedByDongThenName(restaurantsCache.filter(r => teamEnabledIds.has(r.id)));
+  const restaurantIds = enabledRestaurants.map(r => r.id);
+  if (monthLogs.some(e => e.restaurantId === UNKNOWN_ID)) restaurantIds.push(UNKNOWN_ID); // 기억안남은 실제 사용이 있을 때만 행으로 추가
 
   const matrix = {}; // matrix[restaurantId][member] = count
   restaurantIds.forEach(rid => { matrix[rid] = {}; members.forEach(m => matrix[rid][m] = 0); });
-  monthLogs.forEach(e => { matrix[e.restaurantId][e.member] += e.count; });
+  monthLogs.forEach(e => {
+    if (!matrix[e.restaurantId]) return; // 팀에서 비활성화된 식당의 과거 기록은 매트릭스에서 제외
+    if (!(e.member in matrix[e.restaurantId])) return; // 팀 명단에 없는(탈퇴 등) 사용자 기록도 방어적으로 제외
+    matrix[e.restaurantId][e.member] += e.count;
+  });
 
   const rowTotals = {};
   restaurantIds.forEach(rid => { rowTotals[rid] = members.reduce((s,m) => s + matrix[rid][m], 0); });
@@ -734,7 +755,14 @@ function renderAdminTable() {
 
   if (members.length === 0) {
     thead.innerHTML = '<tr><th>구분</th><th>합계</th><th>금액</th></tr>';
-    tbody.innerHTML = '<tr><td colspan="3" style="color:#999;">이번 달 입력된 데이터가 없습니다.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="3" style="color:#999;">등록된 팀원이 없습니다.</td></tr>';
+    tfoot.innerHTML = '';
+    window._adminMatrix = null;
+    return;
+  }
+  if (restaurantIds.length === 0) {
+    thead.innerHTML = '<tr><th>구분</th><th>합계</th><th>금액</th></tr>';
+    tbody.innerHTML = '<tr><td colspan="3" style="color:#999;">우리 팀에 활성화된 식당이 없습니다. 위 "우리 팀 식당 관리"에서 체크해주세요.</td></tr>';
     tfoot.innerHTML = '';
     window._adminMatrix = null;
     return;
@@ -764,22 +792,51 @@ function renderAdminTable() {
 
 document.getElementById('exportExcelBtn').addEventListener('click', () => {
   const m = window._adminMatrix;
-  if (!m || m.members.length === 0) { alert('이번 달 입력된 데이터가 없습니다.'); return; }
+  if (!m || m.members.length === 0) { alert('데이터가 없습니다.'); return; }
 
-  // 화면과 동일한 구분 / 팀원1 / 팀원2 ... / 합계 / 금액 매트릭스로 아오아(2차원 배열) 구성
-  const header = ['구분', ...m.members, '합계', '금액'];
-  const body = m.restaurantIds.map(rid => [
-    restaurantLabel(rid),
-    ...m.members.map(mem => m.matrix[rid][mem]),
-    m.rowTotals[rid],
-    m.rowTotals[rid] * AVG_PRICE
-  ]);
-  const totalRow = ['합계', ...m.members.map(mem => m.colTotals[mem]), m.grandTotal, m.grandTotal * AVG_PRICE];
+  const monthNum = parseInt(m.monthSel.split('-')[1], 10); // "2026-08" -> 8
+  const PAYMENT_METHOD = '제로페이Biz'; // 지금은 결제방법을 한 종류로만 다루고 있어 고정값으로 둠
 
-  const aoa = [header, ...body, totalRow];
+  // 업로드해주신 양식과 동일한 구조: 연번 / 식당명 / 금액 / 정산방법 / 팀원... / 식 합계 / 전화번호
+  const titleRow = [`${monthNum}월  급식비 사용내역`];
+  const blankRow = [];
+  const header = ['연 번', '식  당  명', '금    액', '정산방법', ...m.members, '식 합계', '전화번호'];
+
+  const body = m.restaurantIds.map((rid, idx) => {
+    const restaurant = restaurantsCache.find(r => r.id === rid);
+    const label = restaurantLabel(rid);
+    const amount = m.rowTotals[rid] * AVG_PRICE;
+    return [
+      idx + 1,
+      label,
+      amount,
+      rid === UNKNOWN_ID ? '' : PAYMENT_METHOD,
+      ...m.members.map(mem => m.matrix[rid][mem] || ''), // 0은 양식처럼 빈 칸으로 (사용 있는 칸만 숫자)
+      m.rowTotals[rid],
+      (restaurant && restaurant.phone) || ''
+    ];
+  });
+
+  const subtotalRow = [
+    `소계(${PAYMENT_METHOD})`, '',
+    m.grandTotal * AVG_PRICE, '',
+    ...m.members.map(mem => m.colTotals[mem]),
+    m.grandTotal, ''
+  ];
+
+  const aoa = [titleRow, blankRow, header, ...body, subtotalRow];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  const colCount = header.length;
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: colCount - 1 } }]; // 제목 행 병합
+  ws['!cols'] = [
+    { wch: 6 }, { wch: 18 }, { wch: 10 }, { wch: 12 },
+    ...m.members.map(() => ({ wch: 8 })),
+    { wch: 8 }, { wch: 14 }
+  ];
+
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "식권정산");
+  XLSX.utils.book_append_sheet(wb, ws, "사용처별 내역");
   const orgLabelForFile = session.team ? `${session.dept}_${session.team}` : session.dept;
   XLSX.writeFile(wb, `식권정산_${orgLabelForFile}_${m.monthSel}.xlsx`);
 });
