@@ -1,6 +1,6 @@
 /* ============ Firebase 초기화 ============ */
 // 1) Firebase 콘솔 > 프로젝트 설정 > 내 앱 에서 나온 firebaseConfig 값을 아래에 그대로 붙여넣으세요.
-
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyDKqXtLp5GoOmC7GjRO1P2Gd23qRHMJBB0",
   authDomain: "babjang-af788.firebaseapp.com",
