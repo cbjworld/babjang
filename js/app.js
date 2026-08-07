@@ -68,7 +68,7 @@ async function doLogin() {
     enterMainScreen();
   } catch (err) {
     console.error(err);
-    alert('로그인 중 문제가 발생했어요. firebase-init.js의 설정값을 확인해주세요.');
+    alert(`로그인 중 문제가 발생했어요.\n\n[에러 내용]\n${err.code || ''} ${err.message || err}\n\nfirebase-init.js 설정값과 Firestore 규칙을 확인해주세요.`);
   } finally {
     loginBtn.disabled = false;
     loginBtn.textContent = '시작하기';
