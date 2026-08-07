@@ -536,8 +536,10 @@ document.getElementById('selectAllCheck').addEventListener('change', async (e) =
 document.getElementById('addRestaurantBtn').addEventListener('click', async () => {
   const nameInput = document.getElementById('newRestaurantName');
   const dongSelect = document.getElementById('newRestaurantDong');
+  const phoneInput = document.getElementById('newRestaurantPhone');
   const name = nameInput.value.trim();
   const dong = dongSelect.value;
+  const phone = phoneInput.value.trim();
 
   if (!name || !dong) { alert('식당 이름을 입력하고 동을 선택해주세요.'); return; }
 
@@ -547,15 +549,17 @@ document.getElementById('addRestaurantBtn').addEventListener('click', async () =
   const addBtn = document.getElementById('addRestaurantBtn');
   addBtn.disabled = true;
   try {
-    const newId = await addRestaurantDoc(name, dong);
-    restaurantsCache.push({ id: newId, name, dong, qrImageUrl: null });
+    const newId = await addRestaurantDoc(name, dong, phone);
+    restaurantsCache.push({ id: newId, name, dong, phone: phone || '', qrImageUrl: null });
 
     // 새로 추가한 밥장의 팀에는 자동으로 활성화
     teamEnabledIds.add(newId);
     await saveTeamEnabledIds(session.groupKey, teamEnabledIds);
 
     nameInput.value = '';
+    phoneInput.value = '';
     populateDongFilter();
+    document.getElementById('dongFilterSelect').value = '__all__'; // 방금 추가한 식당이 필터에 가려 안 보이는 일이 없도록
     renderTeamRestaurantChecklist();
   } catch (err) {
     console.error(err);
@@ -732,6 +736,7 @@ function openQrModal(restaurantId) {
   resetCropState();
 
   document.getElementById('qrModalRestaurantName').textContent = `${r.name} (${r.dong})`;
+  document.getElementById('qrPhoneInput').value = r.phone || '';
   document.getElementById('qrFileInput').value = '';
   document.getElementById('qrPreviewWrap').style.display = 'block';
   renderQrPreview(r.qrImageUrl);
@@ -899,14 +904,16 @@ document.getElementById('qrModalOverlay').addEventListener('click', (e) => {
 document.getElementById('qrSaveBtn').addEventListener('click', async () => {
   const r = restaurantsCache.find(x => x.id === qrModalRestaurantId);
   if (!r) { closeQrModal(); return; }
-  if (qrPendingDataUrl) {
-    try {
-      await updateRestaurantQr(r.id, qrPendingDataUrl); // Firestore에 저장 - 다른 팀 밥장도 같은 QR을 보게 됨
-    } catch (err) {
-      console.error(err);
-      alert('QR 저장 중 문제가 발생했어요.');
-      return;
-    }
+
+  const patch = { phone: document.getElementById('qrPhoneInput').value.trim() };
+  if (qrPendingDataUrl) patch.qrImageUrl = qrPendingDataUrl; // 새로 업로드한 QR이 있으면 같이 저장
+
+  try {
+    await updateRestaurantFields(r.id, patch); // Firestore에 저장 - 다른 팀 밥장도 같은 정보를 보게 됨
+  } catch (err) {
+    console.error(err);
+    alert('저장 중 문제가 발생했어요.');
+    return;
   }
   closeQrModal();
 });
@@ -916,7 +923,7 @@ document.getElementById('qrDeleteBtn').addEventListener('click', async () => {
   if (!r) return;
   if (!confirm('이 식당의 결제 QR을 삭제할까요?')) return;
   try {
-    await updateRestaurantQr(r.id, null);
+    await updateRestaurantFields(r.id, { qrImageUrl: null });
   } catch (err) {
     console.error(err);
     alert('삭제 중 문제가 발생했어요.');

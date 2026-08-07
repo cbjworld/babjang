@@ -102,15 +102,16 @@ async function loadRestaurants() {
   return restaurantsCache;
 }
 
-async function addRestaurantDoc(name, dong) {
-  const ref = await db.collection('restaurants').add({ name, dong, qrImageUrl: null });
+async function addRestaurantDoc(name, dong, phone) {
+  const ref = await db.collection('restaurants').add({ name, dong, phone: phone || '', qrImageUrl: null });
   return ref.id;
 }
 
-async function updateRestaurantQr(restaurantId, qrImageUrl) {
-  await db.collection('restaurants').doc(restaurantId).update({ qrImageUrl });
+// QR/전화번호 등 식당 정보를 한 번에 갱신 (필요한 필드만 patch로 넘기면 됨)
+async function updateRestaurantFields(restaurantId, patch) {
+  await db.collection('restaurants').doc(restaurantId).update(patch);
   const r = restaurantsCache.find(x => x.id === restaurantId);
-  if (r) r.qrImageUrl = qrImageUrl; // 캐시도 같이 갱신
+  if (r) Object.assign(r, patch); // 캐시도 같이 갱신
 }
 
 // ============ 팀별 "우리 팀이 쓸 식당" 구독 (Firestore teamRestaurants 컬렉션, 문서ID=groupKey) ============
@@ -124,8 +125,11 @@ async function saveTeamEnabledIds(groupKey, idsSet) {
   await db.collection('teamRestaurants').doc(groupKey).set({ enabledIds: Array.from(idsSet) });
 }
 
-// 동 목록 (순서는 나중에 지정 예정 - 지금은 임시 순서)
-const DONG_LIST = ["이태원동", "한남동", "용산2가동", "남영동", "청파동"];
+// 동 목록 - 조직도의 16개 동 주민센터와 동일하게 맞추고 가나다순 정렬
+const DONG_LIST = [
+  "후암동", "용산2가동", "남영동", "청파동", "원효로1동", "원효로2동", "효창동", "용문동",
+  "한강로동", "이촌1동", "이촌2동", "이태원1동", "이태원2동", "한남동", "서빙고동", "보광동"
+].sort((a, b) => a.localeCompare(b, 'ko'));
 
 function sortedByName(list) {
   return [...list].sort((a, b) => a.name.localeCompare(b.name, 'ko'));

@@ -143,6 +143,7 @@
       <div class="form-row">
         <input type="text" id="newRestaurantName" placeholder="식당 이름">
         <select id="newRestaurantDong"></select>
+        <input type="text" id="newRestaurantPhone" placeholder="전화번호 (선택)">
         <button class="primary" id="addRestaurantBtn">추가</button>
       </div>
     </div>
@@ -161,6 +162,11 @@
   <div class="modal-box">
     <h3 id="qrModalRestaurantName">식당명</h3>
     <p class="muted" style="margin-bottom:14px;">결제 QR 이미지</p>
+
+    <div class="field">
+      <label>전화번호</label>
+      <input type="text" id="qrPhoneInput" placeholder="전화번호 (선택)">
+    </div>
 
     <div id="qrPreviewWrap" style="text-align:center; margin-bottom:14px;">
       <img id="qrPreviewImg" src="" style="max-width:100%; max-height:220px; display:none; border:1px solid #ddd; border-radius:4px;">
