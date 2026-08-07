@@ -144,6 +144,18 @@
         <button class="primary" id="addRestaurantBtn">추가</button>
       </div>
     </div>
+
+    <div style="margin-top:16px; padding-top:14px; border-top:1px solid #eee;">
+      <p style="font-size:13px; font-weight:500; margin-bottom:8px;">여러 개 한 번에 추가하기 (한 줄에 식당 이름 하나씩 붙여넣기)</p>
+      <div class="form-row" style="align-items:flex-start;">
+        <textarea id="bulkRestaurantNames" placeholder="고인돌&#10;곤드레&#10;굴마을낙지촌&#10;..." rows="6" style="flex:1; min-width:220px; padding:8px; border:1px solid #bbb; border-radius:4px; font-family:inherit; font-size:14px;"></textarea>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <select id="bulkRestaurantDong"></select>
+          <button class="primary" id="bulkAddRestaurantBtn">일괄 추가</button>
+        </div>
+      </div>
+      <p class="muted" id="bulkAddResult" style="margin-top:8px;"></p>
+    </div>
   </div>
 
   <table id="adminTable">

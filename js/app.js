@@ -486,6 +486,7 @@ async function handoffBabjang(targetId, cachedMembers) {
 /* ============ 밥장: 우리 팀 식당 관리 ============ */
 function populateDongFilter() {
   document.getElementById('newRestaurantDong').innerHTML = DONG_LIST.map(d => `<option value="${d}">${d}</option>`).join('');
+  document.getElementById('bulkRestaurantDong').innerHTML = DONG_LIST.map(d => `<option value="${d}">${d}</option>`).join('');
 
   const sel = document.getElementById('dongFilterSelect');
   const dongsInUse = [...new Set(restaurantsCache.map(r => r.dong))];
@@ -577,6 +578,52 @@ document.getElementById('addRestaurantBtn').addEventListener('click', async () =
   } finally {
     addBtn.disabled = false;
   }
+});
+
+document.getElementById('bulkAddRestaurantBtn').addEventListener('click', async () => {
+  const textarea = document.getElementById('bulkRestaurantNames');
+  const dong = document.getElementById('bulkRestaurantDong').value;
+  const resultNote = document.getElementById('bulkAddResult');
+
+  const names = [...new Set(
+    textarea.value.split('\n').map(n => n.trim()).filter(n => n.length > 0)
+  )]; // 줄바꿈 기준으로 나누고, 빈 줄/중복 줄 제거
+
+  if (names.length === 0) { alert('추가할 식당 이름을 한 줄에 하나씩 입력해주세요.'); return; }
+  if (!dong) { alert('동을 선택해주세요.'); return; }
+
+  const bulkBtn = document.getElementById('bulkAddRestaurantBtn');
+  bulkBtn.disabled = true;
+
+  let added = 0, skipped = 0, failed = 0;
+  for (const name of names) {
+    const exists = restaurantsCache.some(r => r.name === name && r.dong === dong);
+    if (exists) { skipped++; continue; }
+
+    resultNote.textContent = `등록 중... (${added + skipped + failed + 1}/${names.length}) ${name}`;
+    try {
+      const newId = await addRestaurantDoc(name, dong, '');
+      restaurantsCache.push({ id: newId, name, dong, phone: '', qrImageUrl: null });
+      teamEnabledIds.add(newId); // 추가한 밥장의 팀에는 자동으로 활성화
+      added++;
+    } catch (err) {
+      console.error(`실패: ${name}`, err);
+      failed++;
+    }
+  }
+
+  try {
+    await saveTeamEnabledIds(session.groupKey, teamEnabledIds); // 여러 건이라 마지막에 한 번만 저장
+  } catch (err) {
+    console.error(err);
+  }
+
+  resultNote.textContent = `완료 — 추가 ${added}개, 이미 있어서 건너뜀 ${skipped}개${failed > 0 ? `, 실패 ${failed}개` : ''}`;
+  textarea.value = '';
+  populateDongFilter();
+  document.getElementById('dongFilterSelect').value = '__all__';
+  renderTeamRestaurantChecklist();
+  bulkBtn.disabled = false;
 });
 
 /* ============ 밥장 관리 화면: 인원 x 식당 기준 집계 ============ */
