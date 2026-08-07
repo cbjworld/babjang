@@ -108,13 +108,10 @@
 <div id="screen-admin" class="screen">
   <div class="topbar">
     <div class="who">밥장 관리 · <b id="adminTeamLabel">-</b></div>
-    <button id="backToMainBtn">← 캘린더로 돌아가기</button>
-  </div>
-
-  <div id="babjangHandoffSection" style="background:#fff; border:1px solid #ddd; border-radius:6px; padding:16px; margin-bottom:24px; display:none;">
-    <h3 style="font-size:15px; margin-bottom:4px;">밥장 넘기기</h3>
-    <p class="muted" style="margin-bottom:12px;">우리 팀 다른 팀원에게 밥장 권한을 넘길 수 있어요. 넘기면 본인은 밥장이 아니게 됩니다.</p>
-    <div id="babjangHandoffList"></div>
+    <div>
+      <button id="babjangHandoffOpenBtn">밥장 넘기기</button>
+      <button id="backToMainBtn">← 캘린더로 돌아가기</button>
+    </div>
   </div>
 
   <div class="admin-controls">
@@ -155,6 +152,18 @@
     <tfoot id="adminTableFoot"></tfoot>
   </table>
   <p class="muted" id="adminFootNote" style="margin-top:10px;">※ 비상근무 특별식권, 기억안남 항목도 장수에 합산되어 있습니다. 식당명을 클릭하면 결제 QR을 볼 수 있어요.</p>
+</div>
+
+<!-- =================== 밥장 넘기기 모달 =================== -->
+<div id="babjangHandoffModalOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3>밥장 넘기기</h3>
+    <p class="muted" style="margin-bottom:14px;">우리 팀 다른 팀원에게 밥장 권한을 넘길 수 있어요. 넘기면 본인은 밥장이 아니게 됩니다.</p>
+    <div id="babjangHandoffList"></div>
+    <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+      <button id="babjangHandoffCloseBtn">닫기</button>
+    </div>
+  </div>
 </div>
 
 <!-- =================== 결제 QR 모달 =================== -->
