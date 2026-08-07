@@ -628,20 +628,21 @@ function renderAdminTable() {
   const tfoot = document.getElementById('adminTableFoot');
 
   if (members.length === 0) {
-    thead.innerHTML = '<tr><th>구분</th><th>합계</th></tr>';
-    tbody.innerHTML = '<tr><td colspan="2" style="color:#999;">이번 달 입력된 데이터가 없습니다.</td></tr>';
+    thead.innerHTML = '<tr><th>구분</th><th>합계</th><th>금액</th></tr>';
+    tbody.innerHTML = '<tr><td colspan="3" style="color:#999;">이번 달 입력된 데이터가 없습니다.</td></tr>';
     tfoot.innerHTML = '';
     window._adminMatrix = null;
     return;
   }
 
-  thead.innerHTML = `<tr><th>구분</th>${members.map(m => `<th>${m}</th>`).join('')}<th>합계</th></tr>`;
+  thead.innerHTML = `<tr><th>구분</th>${members.map(m => `<th>${m}</th>`).join('')}<th>합계</th><th>금액</th></tr>`;
 
   tbody.innerHTML = restaurantIds.map(rid => {
     const cells = members.map(m => `<td>${matrix[rid][m]}</td>`).join('');
     const clickable = rid !== UNKNOWN_ID;
     const cellStyle = clickable ? 'style="cursor:pointer; text-decoration:underline dotted; color:#245;"' : '';
-    return `<tr><td ${cellStyle} data-rid="${rid}" class="restaurant-cell">${restaurantLabel(rid)}</td>${cells}<td><b>${rowTotals[rid]}</b></td></tr>`;
+    const amount = (rowTotals[rid] * AVG_PRICE).toLocaleString() + '원';
+    return `<tr><td ${cellStyle} data-rid="${rid}" class="restaurant-cell">${restaurantLabel(rid)}</td>${cells}<td><b>${rowTotals[rid]}</b></td><td>${amount}</td></tr>`;
   }).join('');
 
   tbody.querySelectorAll('.restaurant-cell').forEach(td => {
@@ -650,7 +651,8 @@ function renderAdminTable() {
     });
   });
 
-  tfoot.innerHTML = `<tr><td>합계</td>${members.map(m => `<td>${colTotals[m]}</td>`).join('')}<td>${grandTotal}</td></tr>`;
+  const grandAmount = (grandTotal * AVG_PRICE).toLocaleString() + '원';
+  tfoot.innerHTML = `<tr><td>합계</td>${members.map(m => `<td>${colTotals[m]}</td>`).join('')}<td>${grandTotal}</td><td>${grandAmount}</td></tr>`;
 
   window._adminMatrix = { members, restaurantIds, matrix, rowTotals, colTotals, grandTotal, monthSel };
 }
@@ -659,14 +661,15 @@ document.getElementById('exportExcelBtn').addEventListener('click', () => {
   const m = window._adminMatrix;
   if (!m || m.members.length === 0) { alert('이번 달 입력된 데이터가 없습니다.'); return; }
 
-  // 화면과 동일한 구분 / 팀원1 / 팀원2 ... / 합계 매트릭스로 아오아(2차원 배열) 구성
-  const header = ['구분', ...m.members, '합계'];
+  // 화면과 동일한 구분 / 팀원1 / 팀원2 ... / 합계 / 금액 매트릭스로 아오아(2차원 배열) 구성
+  const header = ['구분', ...m.members, '합계', '금액'];
   const body = m.restaurantIds.map(rid => [
     restaurantLabel(rid),
     ...m.members.map(mem => m.matrix[rid][mem]),
-    m.rowTotals[rid]
+    m.rowTotals[rid],
+    m.rowTotals[rid] * AVG_PRICE
   ]);
-  const totalRow = ['합계', ...m.members.map(mem => m.colTotals[mem]), m.grandTotal];
+  const totalRow = ['합계', ...m.members.map(mem => m.colTotals[mem]), m.grandTotal, m.grandTotal * AVG_PRICE];
 
   const aoa = [header, ...body, totalRow];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
