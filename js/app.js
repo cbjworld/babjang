@@ -39,7 +39,7 @@ function populateLoginTeamOptions(dept) {
 departmentSelect.addEventListener('change', (e) => populateLoginTeamOptions(e.target.value));
 populateLoginTeamOptions(departmentSelect.value);
 
-document.getElementById('loginBtn').addEventListener('click', () => {
+function doLogin() {
   const name = document.getElementById('nameInput').value.trim();
   const password = document.getElementById('passwordInput').value;
   if (!name) { alert('이름을 입력해주세요.'); return; }
@@ -61,6 +61,14 @@ document.getElementById('loginBtn').addEventListener('click', () => {
   };
   setCookie('sikgwon_session', JSON.stringify(session), 90);
   enterMainScreen();
+}
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+
+// 이름/비밀번호 입력창에서 엔터키로 로그인
+['nameInput', 'passwordInput'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); doLogin(); }
+  });
 });
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -291,7 +299,7 @@ document.getElementById('entryModalOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'entryModalOverlay') closeModal();
 });
 
-document.getElementById('modalSaveBtn').addEventListener('click', () => {
+function saveEntryModal() {
   const count = parseInt(document.getElementById('modalCountInput').value, 10);
   const isSpecial = document.getElementById('modalSpecialCheck').checked;
 
@@ -331,6 +339,12 @@ document.getElementById('modalSaveBtn').addEventListener('click', () => {
   closeModal();
   renderEntryPanel();
   renderCalendar();
+}
+document.getElementById('modalSaveBtn').addEventListener('click', saveEntryModal);
+
+// 장수 입력창에서 엔터키로 저장
+document.getElementById('modalCountInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); saveEntryModal(); }
 });
 
 function removeEntry(idx) {
