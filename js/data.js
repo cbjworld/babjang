@@ -126,34 +126,55 @@ const UNKNOWN_ID = "unknown";
 const AVG_PRICE = 9000;
 const MONTHLY_LIMIT = 20;
 
-// 팀별 팀원 명부 - 최초 등록 시 이름+비밀번호가 여기 저장되고, 이후엔 로그인 검증에 사용됨
-// isBabjang은 총괄관리자가 DB(Supabase)에서 직접 지정하거나, 밥장 본인이 넘기기 기능으로 바꿈
-let allMembers = {
-  [makeGroupKey("행정지원과", "총무팀")]: [
-    { id: "seed1", name: "김태호", password: "0000", isBabjang: true },
-    { id: "seed2", name: "박은지", password: "0000", isBabjang: true },
-    { id: "seed3", name: "최수민", password: "0000", isBabjang: false }
-  ]
-};
-function getTeamMembers(team) {
-  if (!allMembers[team]) allMembers[team] = [];
-  return allMembers[team];
-}
-// 최초면 등록, 이미 있으면 비밀번호 검증. 반환: { member, error }
-function registerOrLogin(team, name, password) {
-  const members = getTeamMembers(team);
-  let member = members.find(m => m.name === name);
+// ============ 팀원 명부 (Firestore members 컬렉션) ============
+// 문서ID를 "부서::팀__이름" 형식으로 고정해둬서, Firebase 콘솔에서 사람 찾기 쉽고
+// 총괄관리자가 콘솔에서 직접 isBabjang 필드를 true/false로 바꾸면 그게 곧 밥장 지정/해제가 됨.
 
-  if (!member) {
-    member = { id: 'mem_' + Date.now() + '_' + Math.floor(Math.random()*1000), name, password, isBabjang: false };
-    members.push(member);
-    return { member, error: null };
+// 비밀번호를 평문으로 저장하지 않기 위한 최소한의 보호장치 (브라우저 내장 Web Crypto라 별도 설치 필요 없음)
+async function hashPassword(password) {
+  const enc = new TextEncoder().encode(password);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function memberDocId(groupKey, name) {
+  return `${groupKey}__${name}`;
+}
+
+// 최초면 Firestore에 등록, 이미 있으면 비밀번호 검증. 반환: { member, error }
+async function registerOrLogin(groupKey, name, password) {
+  const docId = memberDocId(groupKey, name);
+  const ref = db.collection('members').doc(docId);
+  const snap = await ref.get();
+  const passwordHash = await hashPassword(password);
+
+  if (!snap.exists) {
+    await ref.set({
+      team: groupKey,
+      name,
+      passwordHash,
+      isBabjang: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    return { member: { id: docId, name, isBabjang: false }, error: null };
   }
 
-  if (member.password !== password) {
+  const data = snap.data();
+  if (data.passwordHash !== passwordHash) {
     return { member: null, error: '비밀번호가 일치하지 않습니다.' };
   }
-  return { member, error: null };
+  return { member: { id: docId, name, isBabjang: !!data.isBabjang }, error: null };
+}
+
+// 우리 팀 전체 팀원 목록 (밥장 관리 화면, 밥장 넘기기에서 사용)
+async function getTeamMembers(groupKey) {
+  const snap = await db.collection('members').where('team', '==', groupKey).get();
+  return snap.docs.map(d => ({ id: d.id, name: d.data().name, isBabjang: !!d.data().isBabjang }));
+}
+
+// 밥장 지정/해제를 Firestore에 반영
+async function setMemberBabjang(memberId, value) {
+  await db.collection('members').doc(memberId).update({ isBabjang: value });
 }
 
 /* ============ 상태 ============ */

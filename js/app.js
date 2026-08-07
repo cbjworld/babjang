@@ -39,28 +39,40 @@ function populateLoginTeamOptions(dept) {
 departmentSelect.addEventListener('change', (e) => populateLoginTeamOptions(e.target.value));
 populateLoginTeamOptions(departmentSelect.value);
 
-function doLogin() {
+async function doLogin() {
   const name = document.getElementById('nameInput').value.trim();
   const password = document.getElementById('passwordInput').value;
   if (!name) { alert('이름을 입력해주세요.'); return; }
   if (!password) { alert('비밀번호를 입력해주세요.'); return; }
 
-  const dept = departmentSelect.value;
-  const hasTeams = teamField.style.display !== 'none';
-  const team = hasTeams ? teamSelect.value : null; // 부구청장/각 국은 팀이 없음
-  const groupKey = makeGroupKey(dept, team);
-  const { member, error } = registerOrLogin(groupKey, name, password);
-  if (error) { alert(error); return; }
+  const loginBtn = document.getElementById('loginBtn');
+  loginBtn.disabled = true;
+  loginBtn.textContent = '확인 중...';
 
-  session = {
-    dept,
-    team,
-    groupKey, // 내부적으로 팀원명부/식당구독/식권로그를 구분하는 키 (부서명이 같아도 팀 이름은 겹칠 수 있어서)
-    name,
-    isBabjang: member.isBabjang // 총괄관리자가 DB에서 이미 밥장으로 지정해뒀다면 여기서 반영됨
-  };
-  setCookie('sikgwon_session', JSON.stringify(session), 90);
-  enterMainScreen();
+  try {
+    const dept = departmentSelect.value;
+    const hasTeams = teamField.style.display !== 'none';
+    const team = hasTeams ? teamSelect.value : null; // 부구청장/각 국은 팀이 없음
+    const groupKey = makeGroupKey(dept, team);
+    const { member, error } = await registerOrLogin(groupKey, name, password);
+    if (error) { alert(error); return; }
+
+    session = {
+      dept,
+      team,
+      groupKey, // 내부적으로 팀원명부/식당구독/식권로그를 구분하는 키 (부서명이 같아도 팀 이름은 겹칠 수 있어서)
+      name,
+      isBabjang: member.isBabjang // 총괄관리자가 Firebase 콘솔에서 이미 밥장으로 지정해뒀다면 여기서 반영됨
+    };
+    setCookie('sikgwon_session', JSON.stringify(session), 90);
+    enterMainScreen();
+  } catch (err) {
+    console.error(err);
+    alert('로그인 중 문제가 발생했어요. firebase-init.js의 설정값을 확인해주세요.');
+  } finally {
+    loginBtn.disabled = false;
+    loginBtn.textContent = '시작하기';
+  }
 }
 document.getElementById('loginBtn').addEventListener('click', doLogin);
 
@@ -354,13 +366,16 @@ function removeEntry(idx) {
 }
 
 /* ============ 밥장: 밥장 넘기기 ============ */
-function renderBabjangHandoffSection() {
+async function renderBabjangHandoffSection() {
   const section = document.getElementById('babjangHandoffSection');
   if (!session.isBabjang) { section.style.display = 'none'; return; }
   section.style.display = 'block';
 
-  const members = getTeamMembers(session.groupKey).filter(m => m.name !== session.name);
   const wrap = document.getElementById('babjangHandoffList');
+  wrap.innerHTML = '<p class="muted">불러오는 중...</p>';
+
+  const allTeamMembers = await getTeamMembers(session.groupKey);
+  const members = allTeamMembers.filter(m => m.name !== session.name);
 
   if (members.length === 0) {
     wrap.innerHTML = '<p class="muted">아직 넘길 수 있는 다른 팀원이 없습니다. (팀원이 한 번 로그인하면 목록에 나타나요)</p>';
@@ -375,26 +390,31 @@ function renderBabjangHandoffSection() {
   `).join('');
 
   wrap.querySelectorAll('.handoff-btn').forEach(btn => {
-    btn.addEventListener('click', () => handoffBabjang(btn.dataset.mid));
+    btn.addEventListener('click', () => handoffBabjang(btn.dataset.mid, allTeamMembers));
   });
 }
 
-function handoffBabjang(targetId) {
-  const members = getTeamMembers(session.groupKey);
+async function handoffBabjang(targetId, cachedMembers) {
+  const members = cachedMembers || await getTeamMembers(session.groupKey);
   const target = members.find(m => m.id === targetId);
   if (!target) return;
 
   if (!confirm(`밥장 권한을 "${target.name}"님에게 넘기시겠어요?\n넘긴 후에는 본인은 더 이상 밥장이 아니게 됩니다.`)) return;
 
-  const me = members.find(m => m.name === session.name);
-  if (me) me.isBabjang = false;
-
   if (members.filter(m => m.isBabjang).length >= 2 && !target.isBabjang) {
     alert('이 팀은 이미 밥장 2명이 지정되어 있어 넘길 수 없어요. 총괄관리자에게 문의해주세요.');
-    if (me) me.isBabjang = true; // 롤백
     return;
   }
-  target.isBabjang = true;
+
+  const me = members.find(m => m.name === session.name);
+  try {
+    if (me) await setMemberBabjang(me.id, false);
+    await setMemberBabjang(target.id, true);
+  } catch (err) {
+    console.error(err);
+    alert('넘기는 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.');
+    return;
+  }
 
   session.isBabjang = false;
   setCookie('sikgwon_session', JSON.stringify(session), 90);
@@ -488,9 +508,9 @@ document.getElementById('addRestaurantBtn').addEventListener('click', () => {
 });
 
 /* ============ 밥장 관리 화면: 인원 x 식당 기준 집계 ============ */
-document.getElementById('toAdminBtn').addEventListener('click', () => {
+document.getElementById('toAdminBtn').addEventListener('click', async () => {
   document.getElementById('adminTeamLabel').textContent = formatOrgLabel(session.dept, session.team);
-  renderBabjangHandoffSection();
+  renderBabjangHandoffSection(); // 내부적으로 비동기 로딩, 완료되면 알아서 채워짐
   populateDongFilter();
   renderTeamRestaurantChecklist();
   populateAdminMonths();
@@ -602,14 +622,36 @@ document.getElementById('exportExcelBtn').addEventListener('click', () => {
 });
 
 /* ============ 결제 QR 모달 (밥장 전용, 웹 화면에서만 표시 - 엑셀엔 포함 안 됨) ============ */
+// Storage 없이 Firestore 문서(최대 1MB)에 base64로 바로 저장하기 위한 제한값
+const QR_MAX_ORIGINAL_MB = 15;   // 업로드 원본 파일 용량 제한
+const QR_MAX_DIM = 600;          // 저장 전 리사이즈할 최대 가로/세로(px) - QR은 이 정도면 스캔에 충분함
+
 let qrModalRestaurantId = null;
-let qrPendingDataUrl = null;   // 최종 저장될 이미지 (크롭 결과 또는 원본)
+let qrPendingDataUrl = null;   // 최종 저장될 이미지 (크롭 결과 또는 원본, 리사이즈 완료 상태)
 let qrOriginalDataUrl = null;  // 방금 업로드한 원본 파일의 dataURL
 let qrSourceImage = null;      // 크롭용 원본 Image 객체
 let qrCropScale = 1;
 let qrCropRect = null;
 let qrCropDragging = false;
 let qrCropStartX = 0, qrCropStartY = 0;
+
+// 캔버스를 QR_MAX_DIM 이하로 축소해서 PNG dataURL로 반환 (이미 작으면 그대로)
+function canvasToLimitedDataUrl(canvas, maxDim) {
+  const { width, height } = canvas;
+  if (width <= maxDim && height <= maxDim) {
+    return canvas.toDataURL('image/png');
+  }
+  const scale = maxDim / Math.max(width, height);
+  const outCanvas = document.createElement('canvas');
+  outCanvas.width = Math.round(width * scale);
+  outCanvas.height = Math.round(height * scale);
+  outCanvas.getContext('2d').drawImage(canvas, 0, 0, outCanvas.width, outCanvas.height);
+  return outCanvas.toDataURL('image/png');
+}
+
+function estimateBase64KB(dataUrl) {
+  return Math.round((dataUrl.length * 0.75) / 1024); // base64는 원본보다 약 33% 커지는 걸 역산
+}
 
 function openQrModal(restaurantId) {
   const r = RESTAURANTS.find(x => x.id === restaurantId);
@@ -633,6 +675,7 @@ function resetCropState() {
   qrCropRect = null;
   document.getElementById('qrCropSection').style.display = 'none';
   document.getElementById('qrCropSelection').style.display = 'none';
+  document.getElementById('qrSizeNote')?.remove();
 }
 
 function renderQrPreview(url) {
@@ -652,6 +695,14 @@ function renderQrPreview(url) {
 document.getElementById('qrFileInput').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
+
+  const fileMB = file.size / (1024 * 1024);
+  if (fileMB > QR_MAX_ORIGINAL_MB) {
+    alert(`파일이 너무 커요 (${fileMB.toFixed(1)}MB). ${QR_MAX_ORIGINAL_MB}MB 이하 이미지로 다시 선택해주세요.`);
+    e.target.value = '';
+    return;
+  }
+
   const reader = new FileReader();
   reader.onload = (ev) => {
     qrOriginalDataUrl = ev.target.result;
@@ -729,6 +780,11 @@ function finishCropUI(dataUrl) {
   document.getElementById('qrCropSection').style.display = 'none';
   document.getElementById('qrPreviewWrap').style.display = 'block';
   renderQrPreview(dataUrl);
+
+  document.getElementById('qrSizeNote')?.remove(); // 이전에 붙여둔 용량 안내가 있으면 제거하고 새로 표시
+  const kb = estimateBase64KB(dataUrl);
+  document.getElementById('qrPreviewWrap').insertAdjacentHTML('beforeend',
+    `<p class="muted" id="qrSizeNote" style="margin-top:6px;">저장 용량: 약 ${kb}KB (자동으로 ${QR_MAX_DIM}px 이하로 줄였어요)</p>`);
 }
 
 document.getElementById('qrCropApplyBtn').addEventListener('click', () => {
@@ -746,11 +802,16 @@ document.getElementById('qrCropApplyBtn').addEventListener('click', () => {
   outCanvas.height = Math.round(sh);
   outCanvas.getContext('2d').drawImage(qrSourceImage, sx, sy, sw, sh, 0, 0, sw, sh);
 
-  finishCropUI(outCanvas.toDataURL('image/png'));
+  finishCropUI(canvasToLimitedDataUrl(outCanvas, QR_MAX_DIM));
 });
 
 document.getElementById('qrUseFullBtn').addEventListener('click', () => {
-  finishCropUI(qrOriginalDataUrl);
+  const fullCanvas = document.createElement('canvas');
+  fullCanvas.width = qrSourceImage.width;
+  fullCanvas.height = qrSourceImage.height;
+  fullCanvas.getContext('2d').drawImage(qrSourceImage, 0, 0);
+
+  finishCropUI(canvasToLimitedDataUrl(fullCanvas, QR_MAX_DIM));
 });
 
 function closeQrModal() {
