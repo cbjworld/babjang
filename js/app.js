@@ -511,10 +511,13 @@ function renderTeamRestaurantChecklist() {
   }
 
   wrap.innerHTML = `<div class="checklist-grid">` + list.map(r => `
-    <label>
-      <input type="checkbox" data-rid="${r.id}" ${teamEnabledIds.has(r.id) ? 'checked' : ''}>
-      <span>${r.name} <span style="color:#999; font-size:11px;">(${r.dong})</span></span>
-    </label>
+    <div class="checklist-item">
+      <label>
+        <input type="checkbox" data-rid="${r.id}" ${teamEnabledIds.has(r.id) ? 'checked' : ''}>
+        <span>${r.name} <span style="color:#999; font-size:11px;">(${r.dong})</span></span>
+      </label>
+      <button class="restaurant-delete-btn" data-rid="${r.id}" data-rname="${r.name}" title="식당 삭제">✕</button>
+    </div>
   `).join('') + `</div>`;
 
   wrap.querySelectorAll('input[type=checkbox]').forEach(cb => {
@@ -527,7 +530,37 @@ function renderTeamRestaurantChecklist() {
     });
   });
 
+  wrap.querySelectorAll('.restaurant-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteRestaurant(btn.dataset.rid, btn.dataset.rname));
+  });
+
   syncSelectAllState(list);
+}
+
+// 식당 삭제는 되돌릴 수 없는 중요한 작업이라 확인 비밀번호를 한 번 더 물어봄
+const RESTAURANT_DELETE_PASSWORD = "최병주사마";
+
+async function deleteRestaurant(restaurantId, restaurantName) {
+  const pw = prompt(`"${restaurantName}"을(를) 삭제합니다.\n중요한 작업이라 확인 비밀번호가 필요해요.`);
+  if (pw === null) return; // 취소
+  if (pw !== RESTAURANT_DELETE_PASSWORD) { alert('비밀번호가 일치하지 않습니다.'); return; }
+  if (!confirm(`정말 "${restaurantName}"을(를) 삭제할까요?\n(과거 식권 사용 기록은 그대로 남아있고, 식당 목록에서만 사라져요)`)) return;
+
+  try {
+    await deleteRestaurantDoc(restaurantId);
+    restaurantsCache = restaurantsCache.filter(r => r.id !== restaurantId);
+    teamEnabledIds.delete(restaurantId);
+    await saveTeamEnabledIds(session.groupKey, teamEnabledIds);
+    await removeRestaurantFromAllTeams(restaurantId); // 다른 팀 구독 목록에도 죽은 참조가 안 남도록 정리
+
+    populateDongFilter();
+    renderTeamRestaurantChecklist();
+    renderRestaurantList();
+    alert(`"${restaurantName}" 삭제했어요.`);
+  } catch (err) {
+    console.error(err);
+    alert('삭제 중 문제가 발생했어요.');
+  }
 }
 
 function syncSelectAllState(list) {

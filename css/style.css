@@ -110,13 +110,22 @@
     max-height: 220px; overflow-y: auto; background: #fafafa;
   }
   .checklist-box .checklist-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 4px 10px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 10px;
   }
-  .checklist-box label {
+  .checklist-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 4px;
+    border-radius: 3px;
+  }
+  .checklist-item label {
     display: flex; align-items: center; gap: 7px; font-size: 13px;
-    padding: 5px 4px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding: 5px 4px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .checklist-box label:hover { background: #eee; }
+  .checklist-item:hover { background: #eee; }
+  .restaurant-delete-btn {
+    border: none; background: transparent; color: #bbb; font-size: 13px;
+    cursor: pointer; padding: 2px 6px; line-height: 1; flex-shrink: 0;
+  }
+  .restaurant-delete-btn:hover { color: #c0392b; }
 
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.45);

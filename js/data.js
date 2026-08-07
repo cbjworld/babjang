@@ -114,6 +114,25 @@ async function updateRestaurantFields(restaurantId, patch) {
   if (r) Object.assign(r, patch); // 캐시도 같이 갱신
 }
 
+async function deleteRestaurantDoc(restaurantId) {
+  await db.collection('restaurants').doc(restaurantId).delete();
+}
+
+// 삭제된 식당 id를 다른 모든 팀의 "우리 팀이 쓸 식당" 목록에서도 제거 (죽은 참조 방지)
+async function removeRestaurantFromAllTeams(restaurantId) {
+  const snap = await db.collection('teamRestaurants').get();
+  const batch = db.batch();
+  let changed = false;
+  snap.docs.forEach(doc => {
+    const ids = doc.data().enabledIds || [];
+    if (ids.includes(restaurantId)) {
+      changed = true;
+      batch.update(doc.ref, { enabledIds: ids.filter(id => id !== restaurantId) });
+    }
+  });
+  if (changed) await batch.commit();
+}
+
 // ============ 팀별 "우리 팀이 쓸 식당" 구독 (Firestore teamRestaurants 컬렉션, 문서ID=groupKey) ============
 async function loadTeamEnabledIds(groupKey) {
   const doc = await db.collection('teamRestaurants').doc(groupKey).get();
