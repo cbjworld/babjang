@@ -988,8 +988,20 @@ function openMemberEditModal() {
   const select = document.getElementById('memberEditSelect');
   select.innerHTML = members.map(name => `<option value="${name}">${name}</option>`).join('');
 
+  populateMemberAddRestaurantSelect();
+  const monthSel = document.getElementById('adminMonthSelect').value; // "YYYY-MM"
+  document.getElementById('memberAddDateInput').value = `${monthSel}-01`; // 정산 월의 1일을 기본값으로
+  document.getElementById('memberAddCountInput').value = '';
+  document.getElementById('memberAddSpecialCheck').checked = false;
+
   document.getElementById('memberEditModalOverlay').style.display = 'flex';
   renderMemberEntryList();
+}
+function populateMemberAddRestaurantSelect() {
+  const sel = document.getElementById('memberAddRestaurantSelect');
+  const list = getEnabledRestaurants(); // 우리 팀이 쓰는 식당 목록 (메인 화면과 동일)
+  sel.innerHTML = list.map(r => `<option value="${r.id}">${r.name} (${r.dong})</option>`).join('')
+    + `<option value="${UNKNOWN_ID}">🤷 어디였는지 기억 안남</option>`;
 }
 function closeMemberEditModal() {
   document.getElementById('memberEditModalOverlay').style.display = 'none';
@@ -1032,6 +1044,63 @@ function renderMemberEntryList() {
     });
   });
 }
+
+// 특정 팀원의 특정 월 일반 식권 합계 (특별식권 제외) - teamAllEntries 캐시 기준
+function getMemberMonthlyNormalTotal(memberName, monthSel) {
+  return teamAllEntries
+    .filter(e => e.member === memberName && e.date.startsWith(monthSel) && !e.special)
+    .reduce((sum, e) => sum + e.count, 0);
+}
+
+document.getElementById('memberAddEntryBtn').addEventListener('click', async () => {
+  const memberName = document.getElementById('memberEditSelect').value;
+  const date = document.getElementById('memberAddDateInput').value;
+  const restaurantId = document.getElementById('memberAddRestaurantSelect').value;
+  const count = parseInt(document.getElementById('memberAddCountInput').value, 10);
+  const special = document.getElementById('memberAddSpecialCheck').checked;
+
+  if (!date) { alert('날짜를 선택해주세요.'); return; }
+  if (!restaurantId) { alert('식당을 선택해주세요.'); return; }
+  if (!count || count <= 0) { alert('장수를 올바르게 입력해주세요.'); return; }
+
+  const monthSel = date.slice(0, 7);
+  if (!special) {
+    const currentTotal = getMemberMonthlyNormalTotal(memberName, monthSel);
+    if (currentTotal + count > MONTHLY_LIMIT) {
+      alert(`이 팀원의 ${monthSel} 일반 식권은 최대 ${MONTHLY_LIMIT}장까지예요. (현재 ${currentTotal}장 사용)\n비상근무 특별식권이면 체크 후 추가해주세요.`);
+      return;
+    }
+  }
+
+  const addBtn = document.getElementById('memberAddEntryBtn');
+  addBtn.disabled = true;
+  try {
+    const entry = {
+      team: session.groupKey, member: memberName, date, restaurantId, count, special,
+      unknown: restaurantId === UNKNOWN_ID
+    };
+    const id = await addMealEntryDoc(entry);
+    const savedEntry = { id, ...entry };
+    teamAllEntries.push(savedEntry);
+
+    // 지금 로그인한 본인 기록이고, 캘린더에 표시 중인 달과 같으면 캘린더 쪽 캐시도 같이 반영
+    if (memberName === session.name && monthSel === monthPrefix(currentYear, currentMonth)) {
+      myMonthEntries.push(savedEntry);
+      renderCalendar();
+    }
+
+    document.getElementById('memberAddCountInput').value = '';
+    document.getElementById('memberAddSpecialCheck').checked = false;
+
+    renderMemberEntryList();
+    if (document.getElementById('adminMonthSelect').value === monthSel) renderAdminTable();
+  } catch (err) {
+    console.error(err);
+    alert('추가 중 문제가 발생했어요.');
+  } finally {
+    addBtn.disabled = false;
+  }
+});
 
 let memberEditTargetEntry = null;
 
