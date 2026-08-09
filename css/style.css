@@ -1,4 +1,4 @@
-  * { box-sizing: border-box; }
+* { box-sizing: border-box; }
   body {
     font-family: -apple-system, "Malgun Gothic", sans-serif;
     background: #f2f2f2;
@@ -141,4 +141,40 @@
   .qr-crop-selection {
     position: absolute; display: none; border: 2px dashed #c0392b;
     background: rgba(192,57,43,0.15); pointer-events: none;
+  }
+
+  .table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* ==================== 모바일 반응형 ==================== */
+  @media (max-width: 700px) {
+    .screen { padding: 12px; }
+
+    .login-box { margin: 24px auto; padding: 20px; max-width: 100%; }
+
+    .topbar {
+      flex-wrap: wrap; gap: 8px; align-items: flex-start;
+    }
+    .topbar > div { display: flex; flex-wrap: wrap; gap: 6px; }
+    .topbar button { padding: 7px 10px; font-size: 13px; }
+
+    /* 달력 + 식당목록을 세로로 쌓음 */
+    .main-layout { flex-direction: column; gap: 16px; }
+    .restaurant-panel { position: static; }
+
+    .cal-header .month-label { font-size: 15px; }
+    .cal-grid { gap: 3px; }
+    .cal-cell { min-height: 46px; padding: 4px; }
+    .cal-cell .date-num { font-size: 11px; }
+    .cal-cell .day-summary { font-size: 10px; }
+
+    .admin-controls { flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+
+    th, td { padding: 6px 8px; font-size: 12px; }
+
+    .modal-box { padding: 16px; width: 92vw; max-height: 85vh; overflow-y: auto; }
+
+    .form-row { gap: 6px; }
+    .form-row input, .form-row select, .form-row textarea { flex: 1 1 auto; min-width: 0; }
+
+    .checklist-box .checklist-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
   }
