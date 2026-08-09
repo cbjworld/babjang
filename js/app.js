@@ -120,12 +120,17 @@ async function enterMainScreen() {
   showScreen('screen-main');
   applyRestaurantPanelVisibility();
   document.getElementById('restaurantList').innerHTML = '<p class="muted">불러오는 중...</p>';
-  document.getElementById('calGrid').innerHTML = '';
+  document.getElementById('calGrid').innerHTML = '<p class="muted" style="grid-column: 1 / -1; text-align:center; padding:24px 0;">달력을 불러오는 중...</p>';
 
   try {
-    if (restaurantsCache.length === 0) await loadRestaurants(); // 식당 마스터는 앱 실행 중 한 번만 불러오면 충분
-    teamEnabledIds = await loadTeamEnabledIds(session.groupKey);
-    await loadMyMonthEntries(session.groupKey, session.name, currentYear, currentMonth);
+    // 식당 목록(+구독)과 이번 달 내 식권 기록을 동시에 요청 - 순서대로 기다리지 않아서 더 빨라요
+    await Promise.all([
+      (async () => {
+        if (restaurantsCache.length === 0) await loadRestaurants(); // 식당 마스터는 앱 실행 중 한 번만 불러오면 충분
+        teamEnabledIds = await loadTeamEnabledIds(session.groupKey);
+      })(),
+      loadMyMonthEntries(session.groupKey, session.name, currentYear, currentMonth)
+    ]);
   } catch (err) {
     console.error(err);
     alert('데이터를 불러오는 중 문제가 발생했어요. firebase-init.js 설정과 인터넷 연결을 확인해주세요.');
@@ -299,6 +304,7 @@ document.getElementById('prevMonthBtn').addEventListener('click', async () => {
   currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; }
   selectedDate = null;
   document.getElementById('entryPanel').style.display = 'none';
+  document.getElementById('calGrid').innerHTML = '<p class="muted" style="grid-column: 1 / -1; text-align:center; padding:24px 0;">달력을 불러오는 중...</p>';
   await loadMyMonthEntries(session.groupKey, session.name, currentYear, currentMonth);
   renderCalendar();
 });
@@ -306,6 +312,7 @@ document.getElementById('nextMonthBtn').addEventListener('click', async () => {
   currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; }
   selectedDate = null;
   document.getElementById('entryPanel').style.display = 'none';
+  document.getElementById('calGrid').innerHTML = '<p class="muted" style="grid-column: 1 / -1; text-align:center; padding:24px 0;">달력을 불러오는 중...</p>';
   await loadMyMonthEntries(session.groupKey, session.name, currentYear, currentMonth);
   renderCalendar();
 });
