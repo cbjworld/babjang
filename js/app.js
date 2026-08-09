@@ -118,6 +118,7 @@ async function enterMainScreen() {
   document.getElementById('toAdminBtn').style.display = session.isBabjang ? 'inline-block' : 'none';
 
   showScreen('screen-main');
+  applyRestaurantPanelVisibility();
   document.getElementById('restaurantList').innerHTML = '<p class="muted">불러오는 중...</p>';
   document.getElementById('calGrid').innerHTML = '';
 
@@ -160,7 +161,7 @@ function renderRestaurantList() {
 
   // "기억 안남" 항목은 검색어와 무관하게 항상 표시
   html += `<div class="r-item unknown-item" data-id="${UNKNOWN_ID}">
-      🤔 어디였는지 기억 안남
+      🤷 어디였는지 기억 안남
     </div>`;
 
   wrap.innerHTML = html;
@@ -314,6 +315,19 @@ function isMobileView() {
   return window.matchMedia('(max-width: 700px)').matches;
 }
 
+// 일부 구형 브라우저(인앱 웹뷰 등)는 display:none인 flex 자식에도 gap 공간을 남기는 버그가 있어서,
+// CSS만 믿지 않고 JS로도 인라인 스타일로 확실하게 없앰
+function applyRestaurantPanelVisibility() {
+  const panel = document.getElementById('restaurantPanel');
+  if (!panel) return;
+  if (isMobileView()) {
+    panel.style.cssText = 'display:none !important; margin:0; padding:0; height:0; min-height:0; flex:0 0 0; overflow:hidden; border:none;';
+  } else {
+    panel.style.cssText = '';
+  }
+}
+window.addEventListener('resize', applyRestaurantPanelVisibility);
+
 // 날짜 선택 후 목록이 바뀌었을 때, 현재 화면(모바일 날짜모달 / 데스크톱 입력패널) 중 맞는 쪽을 갱신
 function refreshDateViews() {
   renderCalendar(); // 캘린더 요약/월 게이지/이번 달 요약 표는 항상 갱신
@@ -347,7 +361,7 @@ function renderEntryPanel() {
 
   const listEl = document.getElementById('entryList');
   listEl.innerHTML = entries.map((e) => {
-    const name = e.unknown ? '🤔 어디였는지 기억 안남' : (restaurantsCache.find(r => r.id === e.restaurantId)?.name || '알수없음');
+    const name = e.unknown ? '🤷 어디였는지 기억 안남' : (restaurantsCache.find(r => r.id === e.restaurantId)?.name || '알수없음');
     const tag = e.special ? '<span class="tag">특별식권</span>' : '';
     return `<div class="entry-row">
       <span class="r-name">${name}${tag}</span>
@@ -366,7 +380,7 @@ let modalRestaurantId = null;
 let modalEditEntryId = null;
 
 function restaurantModalTitle(id) {
-  if (id === UNKNOWN_ID) return '🤔 어디였는지 기억 안남';
+  if (id === UNKNOWN_ID) return '🤷 어디였는지 기억 안남';
   const r = restaurantsCache.find(r => r.id === id);
   return r ? `${r.name} (${r.dong})` : '알수없음';
 }
@@ -502,7 +516,7 @@ function openDayModal(dateStr) {
   const sel = document.getElementById('dayAddRestaurantSelect');
   const list = getEnabledRestaurants();
   sel.innerHTML = list.map(r => `<option value="${r.id}">${r.name} (${r.dong})</option>`).join('')
-    + `<option value="${UNKNOWN_ID}">🤔 어디였는지 기억 안남</option>`;
+    + `<option value="${UNKNOWN_ID}">🤷 어디였는지 기억 안남</option>`;
 
   document.getElementById('dayAddCountInput').value = '';
   document.getElementById('dayAddSpecialCheck').checked = false;
@@ -525,7 +539,7 @@ function renderDayModalEntries() {
   if (totalNote) totalNote.textContent = `이 날 입력: ${entries.length}건`;
 
   listEl.innerHTML = entries.map((e) => {
-    const name = e.unknown ? '🤔 어디였는지 기억 안남' : (restaurantsCache.find(r => r.id === e.restaurantId)?.name || '알수없음');
+    const name = e.unknown ? '🤷 어디였는지 기억 안남' : (restaurantsCache.find(r => r.id === e.restaurantId)?.name || '알수없음');
     const tag = e.special ? '<span class="tag">특별식권</span>' : '';
     return `<div class="entry-row">
       <span class="r-name">${name}${tag}</span>
@@ -866,7 +880,7 @@ function populateAdminMonths() {
 }
 
 function restaurantLabel(id) {
-  if (id === UNKNOWN_ID) return '🤔 기억안남';
+  if (id === UNKNOWN_ID) return '🤷 기억안남';
   return restaurantsCache.find(r => r.id === id)?.name || '알수없음';
 }
 
@@ -1135,7 +1149,7 @@ function renderMemberEntryList() {
   }
 
   wrap.innerHTML = entries.map(e => {
-    const rName = e.unknown ? '🤔 어디였는지 기억 안남' : restaurantLabel(e.restaurantId);
+    const rName = e.unknown ? '🤷 어디였는지 기억 안남' : restaurantLabel(e.restaurantId);
     const tag = e.special ? '<span class="tag">특별식권</span>' : '';
     return `<div class="entry-row">
       <span class="r-name">${e.date} · ${rName}${tag}</span>
@@ -1213,7 +1227,7 @@ let memberEditTargetEntry = null;
 
 function openMemberEntryEditModal(entry) {
   memberEditTargetEntry = entry;
-  const rName = entry.unknown ? '🤔 어디였는지 기억 안남' : restaurantLabel(entry.restaurantId);
+  const rName = entry.unknown ? '🤷 어디였는지 기억 안남' : restaurantLabel(entry.restaurantId);
   document.getElementById('memberEntryEditTitle').textContent = `${entry.date} · ${rName}`;
   document.getElementById('memberEntryCountInput').value = entry.count;
   document.getElementById('memberEntrySpecialCheck').checked = entry.special;
