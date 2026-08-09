@@ -170,8 +170,8 @@
     .cal-header { padding: 0 12px; }
     .cal-header .month-label { font-size: 15px; }
     .monthly-gauge { margin-left: 12px; margin-right: 12px; }
-    .cal-grid { gap: 2px; }
-    .cal-cell { min-height: 46px; padding: 4px; border-radius: 0; }
+    .cal-grid { gap: 2px; margin-left: 12px; margin-right: 12px; }
+    .cal-cell { min-height: 46px; padding: 4px; }
     .cal-cell .date-num { font-size: 11px; }
     .cal-cell .day-summary { font-size: 10px; }
 
