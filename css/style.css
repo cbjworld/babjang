@@ -158,8 +158,8 @@
     .topbar > div { display: flex; flex-wrap: wrap; gap: 6px; }
     .topbar button { padding: 7px 10px; font-size: 13px; }
 
-    /* 달력 + 식당목록을 세로로 쌓음 */
-    .main-layout { flex-direction: column; gap: 16px; }
+    /* 달력 + 식당목록을 세로로 쌓음 (gap을 0으로 두고 필요한 여백은 각 카드가 자체 margin으로 처리) */
+    .main-layout { flex-direction: column; gap: 0; }
     .restaurant-panel {
       display: none !important;
       margin: 0; padding: 0; height: 0; min-height: 0;
