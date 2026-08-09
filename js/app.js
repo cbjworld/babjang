@@ -284,6 +284,12 @@ function renderMyMonthSummary() {
           <td style="padding:6px 4px; font-size:13px; text-align:right; border-bottom:1px dashed #eee;">${r.count}장</td>
         </tr>`).join('')}
       </tbody>
+      <tfoot>
+        <tr>
+          <td style="padding:6px 4px; font-size:13px; font-weight:bold;">합계</td>
+          <td style="padding:6px 4px; font-size:13px; text-align:right; font-weight:bold;">${rows.reduce((sum, r) => sum + r.count, 0)}장</td>
+        </tr>
+      </tfoot>
     </table>
   `;
 }
