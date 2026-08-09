@@ -347,7 +347,7 @@ function renderEntryPanel() {
 
   const listEl = document.getElementById('entryList');
   listEl.innerHTML = entries.map((e) => {
-    const name = e.unknown ? '🤷 어디였는지 기억 안남' : (restaurantsCache.find(r => r.id === e.restaurantId)?.name || '알수없음');
+    const name = e.unknown ? '🤔 어디였는지 기억 안남' : (restaurantsCache.find(r => r.id === e.restaurantId)?.name || '알수없음');
     const tag = e.special ? '<span class="tag">특별식권</span>' : '';
     return `<div class="entry-row">
       <span class="r-name">${name}${tag}</span>
@@ -366,7 +366,7 @@ let modalRestaurantId = null;
 let modalEditEntryId = null;
 
 function restaurantModalTitle(id) {
-  if (id === UNKNOWN_ID) return '🤷 어디였는지 기억 안남';
+  if (id === UNKNOWN_ID) return '🤔 어디였는지 기억 안남';
   const r = restaurantsCache.find(r => r.id === id);
   return r ? `${r.name} (${r.dong})` : '알수없음';
 }
@@ -502,7 +502,7 @@ function openDayModal(dateStr) {
   const sel = document.getElementById('dayAddRestaurantSelect');
   const list = getEnabledRestaurants();
   sel.innerHTML = list.map(r => `<option value="${r.id}">${r.name} (${r.dong})</option>`).join('')
-    + `<option value="${UNKNOWN_ID}">🤷 어디였는지 기억 안남</option>`;
+    + `<option value="${UNKNOWN_ID}">🤔 어디였는지 기억 안남</option>`;
 
   document.getElementById('dayAddCountInput').value = '';
   document.getElementById('dayAddSpecialCheck').checked = false;
@@ -525,7 +525,7 @@ function renderDayModalEntries() {
   if (totalNote) totalNote.textContent = `이 날 입력: ${entries.length}건`;
 
   listEl.innerHTML = entries.map((e) => {
-    const name = e.unknown ? '🤷 어디였는지 기억 안남' : (restaurantsCache.find(r => r.id === e.restaurantId)?.name || '알수없음');
+    const name = e.unknown ? '🤔 어디였는지 기억 안남' : (restaurantsCache.find(r => r.id === e.restaurantId)?.name || '알수없음');
     const tag = e.special ? '<span class="tag">특별식권</span>' : '';
     return `<div class="entry-row">
       <span class="r-name">${name}${tag}</span>
@@ -866,7 +866,7 @@ function populateAdminMonths() {
 }
 
 function restaurantLabel(id) {
-  if (id === UNKNOWN_ID) return '🤷 기억안남';
+  if (id === UNKNOWN_ID) return '🤔 기억안남';
   return restaurantsCache.find(r => r.id === id)?.name || '알수없음';
 }
 
@@ -1135,7 +1135,7 @@ function renderMemberEntryList() {
   }
 
   wrap.innerHTML = entries.map(e => {
-    const rName = e.unknown ? '🤷 어디였는지 기억 안남' : restaurantLabel(e.restaurantId);
+    const rName = e.unknown ? '🤔 어디였는지 기억 안남' : restaurantLabel(e.restaurantId);
     const tag = e.special ? '<span class="tag">특별식권</span>' : '';
     return `<div class="entry-row">
       <span class="r-name">${e.date} · ${rName}${tag}</span>
@@ -1213,7 +1213,7 @@ let memberEditTargetEntry = null;
 
 function openMemberEntryEditModal(entry) {
   memberEditTargetEntry = entry;
-  const rName = entry.unknown ? '🤷 어디였는지 기억 안남' : restaurantLabel(entry.restaurantId);
+  const rName = entry.unknown ? '🤔 어디였는지 기억 안남' : restaurantLabel(entry.restaurantId);
   document.getElementById('memberEntryEditTitle').textContent = `${entry.date} · ${rName}`;
   document.getElementById('memberEntryCountInput').value = entry.count;
   document.getElementById('memberEntrySpecialCheck').checked = entry.special;
