@@ -160,7 +160,7 @@ function renderRestaurantList() {
 
   // "기억 안남" 항목은 검색어와 무관하게 항상 표시
   html += `<div class="r-item unknown-item" data-id="${UNKNOWN_ID}">
-      🤷 어디였는지 기억 안남
+      🤔 어디였는지 기억 안남
     </div>`;
 
   wrap.innerHTML = html;
