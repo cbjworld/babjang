@@ -147,12 +147,13 @@
 
   /* ==================== 모바일 반응형 ==================== */
   @media (max-width: 700px) {
-    .screen { padding: 12px; }
+    .screen { padding: 12px 0; } /* 좌우 여백 제거 - 모든 요소가 화면 폭을 그대로 씀 */
 
-    .login-box { margin: 24px auto; padding: 20px; max-width: 100%; }
+    .login-box { margin: 24px 0; padding: 20px; max-width: 100%; }
 
     .topbar {
       flex-wrap: wrap; gap: 8px; align-items: flex-start;
+      padding: 0 12px 12px;
     }
     .topbar > div { display: flex; flex-wrap: wrap; gap: 6px; }
     .topbar button { padding: 7px 10px; font-size: 13px; }
@@ -161,18 +162,18 @@
     .main-layout { flex-direction: column; gap: 16px; }
     .restaurant-panel { display: none; } /* 모바일에선 날짜 클릭 모달 안의 드롭박스로 대체 */
 
+    .cal-header { padding: 0 12px; }
     .cal-header .month-label { font-size: 15px; }
-    .cal-grid {
-      gap: 2px;
-      margin-left: calc(50% - 50vw);
-      margin-right: calc(50% - 50vw);
-      width: 100vw;
-    }
+    .monthly-gauge { margin-left: 12px; margin-right: 12px; }
+    .cal-grid { gap: 2px; }
     .cal-cell { min-height: 46px; padding: 4px; border-radius: 0; }
     .cal-cell .date-num { font-size: 11px; }
     .cal-cell .day-summary { font-size: 10px; }
 
-    .admin-controls { flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+    #myMonthSummary { padding: 0 12px; }
+    .entry-panel { margin-left: 12px; margin-right: 12px; }
+
+    .admin-controls { flex-wrap: wrap; gap: 10px; align-items: flex-start; padding: 0 12px; }
 
     th, td { padding: 6px 8px; font-size: 12px; }
 
