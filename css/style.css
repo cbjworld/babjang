@@ -162,7 +162,12 @@
     .restaurant-panel { display: none; } /* 모바일에선 날짜 클릭 모달 안의 드롭박스로 대체 */
 
     .cal-header .month-label { font-size: 15px; }
-    .cal-grid { gap: 2px; margin-left: -12px; margin-right: -12px; width: calc(100% + 24px); }
+    .cal-grid {
+      gap: 2px;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+      width: 100vw;
+    }
     .cal-cell { min-height: 46px; padding: 4px; border-radius: 0; }
     .cal-cell .date-num { font-size: 11px; }
     .cal-cell .day-summary { font-size: 10px; }
