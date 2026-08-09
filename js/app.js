@@ -315,6 +315,14 @@ function isMobileView() {
   return window.matchMedia('(max-width: 700px)').matches;
 }
 
+// 모바일에서 <select> 항목을 고르면 선택 즉시 포커스를 해제해서 드롭박스가 확실히 닫히게 함
+// (일부 인앱 브라우저/웹뷰는 change 이후에도 포커스가 남아 드롭박스가 안 닫히는 경우가 있어서)
+document.addEventListener('change', (e) => {
+  if (e.target.tagName === 'SELECT' && isMobileView()) {
+    e.target.blur();
+  }
+});
+
 // 일부 구형 브라우저(인앱 웹뷰 등)는 display:none인 flex 자식에도 gap 공간을 남기는 버그가 있어서,
 // CSS만 믿지 않고 JS로도 인라인 스타일로 확실하게 없앰
 function applyRestaurantPanelVisibility() {
