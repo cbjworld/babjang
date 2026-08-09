@@ -85,6 +85,32 @@
   </div>
 </div>
 
+<!-- =================== 모바일: 날짜 클릭 시 통합 모달 (조회+추가+수정+삭제) =================== -->
+<div id="dayModalOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3 id="dayModalTitle">8월 7일 (금)</h3>
+    <p class="muted" id="dayModalTotalNote" style="margin-bottom:10px;">이 날 입력: 0건</p>
+
+    <div id="dayModalEntryList" style="margin-bottom:14px;"></div>
+
+    <div style="border-top:1px solid #eee; padding-top:12px;">
+      <p style="font-size:13px; font-weight:500; margin-bottom:8px;">식권 추가</p>
+      <div class="form-row" style="margin-bottom:8px;">
+        <select id="dayAddRestaurantSelect" style="flex:1; min-width:0;"></select>
+        <input type="number" id="dayAddCountInput" placeholder="장수" min="1" style="width:70px;">
+      </div>
+      <label style="display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:12px;">
+        <input type="checkbox" id="dayAddSpecialCheck"> 비상근무 특별식권 (월 한도 예외)
+      </label>
+      <button class="primary" id="dayAddEntryBtn" style="width:100%;">추가</button>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+      <button id="dayModalCloseBtn">닫기</button>
+    </div>
+  </div>
+</div>
+
 <!-- =================== 식권 입력/수정 모달 =================== -->
 <div id="entryModalOverlay" class="modal-overlay" style="display:none;">
   <div class="modal-box">
