@@ -172,6 +172,14 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; c
 /* ---- 메인 레이아웃 ---- */
 .main-layout { display: flex; gap: 24px; align-items: flex-start; }
 .calendar-panel { flex: 2; }
+@media (min-width: 701px) {
+  .calendar-panel { display: flex; flex-direction: column; }
+  .calendar-panel .cal-header { order: 1; }
+  .calendar-panel .monthly-gauge { order: 2; }
+  .calendar-panel .cal-grid { order: 3; }
+  .calendar-panel .entry-panel { order: 4; margin-top: 18px; }
+  .calendar-panel #myMonthSummary { order: 5; margin-top: 18px; }
+}
 .restaurant-panel {
   flex: 1; background: var(--surface);
   border: 1px solid var(--border-soft); border-radius: var(--r-lg);
