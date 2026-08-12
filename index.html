@@ -3,12 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#f5f5f7">
-<title>식권관리-홍익밥장</title>
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="stylesheet" as="style" crossorigin
-  href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
-<link rel="stylesheet" href="css/style.css?v=7">
+<title>식권관리 프로토타입</title>
+<link rel="stylesheet" href="css/style.css?v=8">
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 
 <!-- Firebase SDK (compat 버전 - 빌드도구 없이 <script>만으로 사용 가능) -->
@@ -45,7 +41,7 @@
     </div>
 
     <button class="primary" id="loginBtn">시작하기</button>
-    <p class="muted" style="text-align:center; margin-top:12px;">문의: 최병주</p>
+    <p class="muted" style="text-align:center; margin-top:12px;">문의: 최병주 (v7)</p>
   </div>
 </div>
 
@@ -156,8 +152,8 @@
     <button id="exportExcelBtn">엑셀로 다운로드</button>
   </div>
 
-  <div class="card">
-    <h3 style="margin-bottom:4px;">우리 팀 식당 관리</h3>
+  <div style="background:#fff; border:1px solid #ddd; border-radius:6px; padding:16px; margin-bottom:24px;">
+    <h3 style="font-size:15px; margin-bottom:4px;">우리 팀 식당 관리</h3>
     <p class="muted" style="margin-bottom:12px;">전체 식당 목록은 구청 전 부서·동이 공유해요. 우리 팀원이 쓸 식당만 체크하세요.</p>
 
     <div class="form-row" style="margin-bottom:10px;">
@@ -183,7 +179,7 @@
     <div style="margin-top:16px; padding-top:14px; border-top:1px solid #eee;">
       <p style="font-size:13px; font-weight:500; margin-bottom:8px;">여러 개 한 번에 추가하기 (한 줄에 식당 이름 하나씩 붙여넣기)</p>
       <div class="form-row" style="align-items:flex-start;">
-        <textarea id="bulkRestaurantNames" placeholder="고인돌&#10;곤드레&#10;굴마을낙지촌&#10;..." rows="6" style="flex:1; min-width:220px;"></textarea>
+        <textarea id="bulkRestaurantNames" placeholder="고인돌&#10;곤드레&#10;굴마을낙지촌&#10;..." rows="6" style="flex:1; min-width:220px; padding:8px; border:1px solid #bbb; border-radius:4px; font-family:inherit; font-size:14px;"></textarea>
         <div style="display:flex; flex-direction:column; gap:8px;">
           <select id="bulkRestaurantDong"></select>
           <button class="primary" id="bulkAddRestaurantBtn">일괄 추가</button>
@@ -316,7 +312,7 @@
 
 
 <script src="js/firebase-init.js"></script>
-<script src="js/data.js?v=6"></script>
-<script src="js/app.js?v=6"></script>
+<script src="js/data.js?v=8"></script>
+<script src="js/app.js?v=8"></script>
 </body>
 </html>
