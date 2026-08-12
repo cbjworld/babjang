@@ -843,8 +843,9 @@ document.getElementById('bulkAddRestaurantBtn').addEventListener('click', async 
   bulkBtn.disabled = true;
 
   let added = 0, skipped = 0, failed = 0;
+  const skippedNames = [];
   for (const name of names) {
-    if (isDuplicateRestaurantName(name)) { skipped++; continue; }
+    if (isDuplicateRestaurantName(name)) { skipped++; skippedNames.push(name); continue; }
 
     resultNote.textContent = `등록 중... (${added + skipped + failed + 1}/${names.length}) ${name}`;
     try {
@@ -865,6 +866,9 @@ document.getElementById('bulkAddRestaurantBtn').addEventListener('click', async 
   }
 
   resultNote.textContent = `완료 — 추가 ${added}개, 이미 있어서 건너뜀 ${skipped}개${failed > 0 ? `, 실패 ${failed}개` : ''}`;
+  if (skippedNames.length > 0) {
+    alert(`이미 등록되어 있어서 건너뛴 식당 (${skippedNames.length}개):\n${skippedNames.join(', ')}`);
+  }
   textarea.value = '';
   populateDongFilter();
   document.getElementById('dongFilterSelect').value = '__all__';
