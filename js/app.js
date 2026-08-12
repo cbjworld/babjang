@@ -583,6 +583,7 @@ document.getElementById('dayAddEntryBtn').addEventListener('click', async () => 
     document.getElementById('dayAddSpecialCheck').checked = false;
     renderDayModalEntries();
     renderCalendar();
+    requestAnimationFrame(renderDayModalEntries); // 일부 웹뷰의 렌더링 지연 방어용 재확인
   } catch (err) {
     console.error(err);
     alert('추가 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.');
@@ -777,6 +778,15 @@ document.getElementById('selectAllCheck').addEventListener('change', async (e) =
   renderTeamRestaurantChecklist();
 });
 
+// 공백 차이/대소문자 차이로 인한 중복 누락을 막기 위한 이름 정규화 비교
+function normalizeRestaurantName(name) {
+  return name.trim().replace(/\s+/g, '').toLowerCase();
+}
+function isDuplicateRestaurantName(name) {
+  const norm = normalizeRestaurantName(name);
+  return restaurantsCache.some(r => normalizeRestaurantName(r.name) === norm);
+}
+
 document.getElementById('addRestaurantBtn').addEventListener('click', async () => {
   const nameInput = document.getElementById('newRestaurantName');
   const dongSelect = document.getElementById('newRestaurantDong');
@@ -787,8 +797,8 @@ document.getElementById('addRestaurantBtn').addEventListener('click', async () =
 
   if (!name || !dong) { alert('식당 이름을 입력하고 동을 선택해주세요.'); return; }
 
-  const exists = restaurantsCache.some(r => r.name === name && r.dong === dong);
-  if (exists) { alert('이미 같은 이름/동네의 식당이 등록되어 있어요.'); return; }
+  const exists = isDuplicateRestaurantName(name);
+  if (exists) { alert('이미 같은 이름의 식당이 등록되어 있어요.'); return; }
 
   const addBtn = document.getElementById('addRestaurantBtn');
   addBtn.disabled = true;
@@ -818,9 +828,13 @@ document.getElementById('bulkAddRestaurantBtn').addEventListener('click', async 
   const dong = document.getElementById('bulkRestaurantDong').value;
   const resultNote = document.getElementById('bulkAddResult');
 
-  const names = [...new Set(
-    textarea.value.split('\n').map(n => n.trim()).filter(n => n.length > 0)
-  )]; // 줄바꿈 기준으로 나누고, 빈 줄/중복 줄 제거
+  const rawNames = textarea.value.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+  const seenNorm = new Set();
+  const names = [];
+  for (const n of rawNames) {
+    const norm = normalizeRestaurantName(n);
+    if (!seenNorm.has(norm)) { seenNorm.add(norm); names.push(n); }
+  } // 줄바꿈 기준으로 나누고, 빈 줄/공백·대소문자 차이 나는 중복 줄까지 제거
 
   if (names.length === 0) { alert('추가할 식당 이름을 한 줄에 하나씩 입력해주세요.'); return; }
   if (!dong) { alert('동을 선택해주세요.'); return; }
@@ -830,8 +844,7 @@ document.getElementById('bulkAddRestaurantBtn').addEventListener('click', async 
 
   let added = 0, skipped = 0, failed = 0;
   for (const name of names) {
-    const exists = restaurantsCache.some(r => r.name === name && r.dong === dong);
-    if (exists) { skipped++; continue; }
+    if (isDuplicateRestaurantName(name)) { skipped++; continue; }
 
     resultNote.textContent = `등록 중... (${added + skipped + failed + 1}/${names.length}) ${name}`;
     try {
