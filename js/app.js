@@ -128,7 +128,7 @@ document.getElementById('superAdminOpenLink').addEventListener('click', async (e
     allMembersCache = await loadAllMembers();
   } catch (err) {
     console.error(err);
-    alert('팀원 목록을 불러오는 중 문제가 발생했어요.');
+    alert(`팀원 목록을 불러오는 중 문제가 발생했어요.\n\n[에러 내용]\n${err.code || ''} ${err.message || err}`);
     allMembersCache = [];
   }
   renderSuperAdminTable();
