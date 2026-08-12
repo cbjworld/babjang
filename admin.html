@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>총괄관리자</title>
+<link rel="stylesheet" href="css/style.css?v=11">
+
+<!-- Firebase SDK (compat 버전 - 빌드도구 없이 <script>만으로 사용 가능) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+</head>
+<body>
+
+<!-- =================== 접속 비밀번호 화면 =================== -->
+<div id="screen-admin-gate" class="screen active">
+  <div class="login-box">
+    <h1>총괄관리자</h1>
+    <p class="muted">이 페이지는 총괄관리자 전용입니다</p>
+
+    <div class="field">
+      <label>접속 비밀번호</label>
+      <input type="password" id="adminGatePassword" placeholder="비밀번호를 입력하세요">
+    </div>
+
+    <button class="primary" id="adminGateBtn">입장</button>
+  </div>
+</div>
+
+<!-- =================== 총괄관리자 - 팀원 관리 =================== -->
+<div id="screen-superadmin" class="screen">
+  <div class="topbar">
+    <div class="who">총괄관리자 · 팀원 관리</div>
+  </div>
+
+  <div class="field" style="margin-bottom: 16px;">
+    <label>이름 또는 부서·팀으로 검색</label>
+    <input type="text" id="superAdminSearchInput" placeholder="검색어 입력...">
+  </div>
+
+  <p class="muted" id="superAdminCountNote" style="margin-bottom: 10px;"></p>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>이름</th>
+          <th>부서 · 팀</th>
+          <th>밥장</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="superAdminTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- =================== 팀원 부서 이동 모달 =================== -->
+<div id="moveMemberModalOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3 id="moveMemberTitle">부서 이동</h3>
+    <p class="muted" style="margin-bottom:14px;">이동하면 이 팀원이 입력해둔 식권 사용 기록도 새 소속으로 같이 옮겨져요.</p>
+
+    <div class="field">
+      <label>새 부서</label>
+      <select id="moveMemberDeptSelect"></select>
+    </div>
+    <div class="field" id="moveMemberTeamField">
+      <label>새 팀</label>
+      <select id="moveMemberTeamSelect"></select>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+      <button id="moveMemberCancelBtn">취소</button>
+      <button class="primary" id="moveMemberConfirmBtn">이동</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/firebase-init.js"></script>
+<script src="js/data.js?v=11"></script>
+<script src="js/admin.js?v=11"></script>
+</body>
+</html>
