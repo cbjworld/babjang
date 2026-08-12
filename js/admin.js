@@ -4,6 +4,33 @@ function showScreen(id) {
   document.getElementById(id).classList.add('active');
 }
 
+function setCookie(name, value, days) {
+  try {
+    const d = new Date();
+    d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/`;
+  } catch (e) { console.warn("쿠키 저장 실패:", e); }
+}
+
+// "부서::팀" 형태의 groupKey를 { dept, team }으로 분해 (팀이 없으면 team: null)
+function parseGroupKey(groupKey) {
+  const idx = groupKey.indexOf('::');
+  if (idx === -1) return { dept: groupKey, team: null };
+  return { dept: groupKey.slice(0, idx), team: groupKey.slice(idx + 2) };
+}
+
+// 총괄관리자가 팀원 이름을 클릭하면, 그 팀원 세션으로 바꿔서 메인 화면으로 이동
+function loginAsMember(memberId) {
+  const member = allMembersCache.find(m => m.id === memberId);
+  if (!member) return;
+  if (!confirm(`"${member.name}"님으로 로그인할까요?\n메인 화면으로 이동합니다.`)) return;
+
+  const { dept, team } = parseGroupKey(member.team);
+  const session = { dept, team, groupKey: member.team, name: member.name, isBabjang: !!member.isBabjang };
+  setCookie('sikgwon_session', JSON.stringify(session), 90);
+  window.location.href = 'index.html';
+}
+
 /* ============ 접속 비밀번호 게이트 ============ */
 const SUPER_ADMIN_PASSWORD = "chlqudwntkak";
 
@@ -59,7 +86,7 @@ function renderSuperAdminTable() {
 
   tbody.innerHTML = filtered.map(m => `
     <tr>
-      <td>${m.name}</td>
+      <td><a href="#" class="superadmin-login-as" data-mid="${m.id}" style="color:#245; text-decoration:underline dotted;">${m.name}</a></td>
       <td>${formatGroupKeyLabel(m.team)}</td>
       <td style="text-align:center;">
         <input type="checkbox" class="superadmin-babjang-check" data-mid="${m.id}" ${m.isBabjang ? 'checked' : ''}>
@@ -70,6 +97,13 @@ function renderSuperAdminTable() {
       </td>
     </tr>
   `).join('');
+
+  tbody.querySelectorAll('.superadmin-login-as').forEach(a => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      loginAsMember(a.dataset.mid);
+    });
+  });
 
   tbody.querySelectorAll('.superadmin-babjang-check').forEach(cb => {
     cb.addEventListener('change', async () => {
