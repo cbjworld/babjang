@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>식권관리 프로토타입</title>
-<link rel="stylesheet" href="css/style.css?v=9">
+<link rel="stylesheet" href="css/style.css?v=10">
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 
 <!-- Firebase SDK (compat 버전 - 빌드도구 없이 <script>만으로 사용 가능) -->
@@ -41,7 +41,63 @@
     </div>
 
     <button class="primary" id="loginBtn">시작하기</button>
-    <p class="muted" style="text-align:center; margin-top:12px;">문의: 최병주 (v7)</p>
+    <p class="muted" style="text-align:center; margin-top:12px;">문의: 최병주 (v9)</p>
+    <p style="text-align:center; margin-top:10px;">
+      <a href="#" id="superAdminOpenLink" style="font-size:12px; color:#999;">총괄관리자</a>
+    </p>
+  </div>
+</div>
+
+<!-- =================== 화면 1-B: 총괄관리자 - 팀원 관리 =================== -->
+<div id="screen-superadmin" class="screen">
+  <div class="topbar">
+    <div class="who">총괄관리자 · 팀원 관리</div>
+    <div>
+      <button id="superAdminBackBtn">← 로그인 화면으로</button>
+    </div>
+  </div>
+
+  <div class="field" style="margin-bottom: 16px;">
+    <label>이름 또는 부서·팀으로 검색</label>
+    <input type="text" id="superAdminSearchInput" placeholder="검색어 입력...">
+  </div>
+
+  <p class="muted" id="superAdminCountNote" style="margin-bottom: 10px;"></p>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>이름</th>
+          <th>부서 · 팀</th>
+          <th>밥장</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="superAdminTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- =================== 총괄관리자: 팀원 부서 이동 모달 =================== -->
+<div id="moveMemberModalOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3 id="moveMemberTitle">부서 이동</h3>
+    <p class="muted" style="margin-bottom:14px;">이동하면 이 팀원이 입력해둔 식권 사용 기록도 새 소속으로 같이 옮겨져요.</p>
+
+    <div class="field">
+      <label>새 부서</label>
+      <select id="moveMemberDeptSelect"></select>
+    </div>
+    <div class="field" id="moveMemberTeamField">
+      <label>새 팀</label>
+      <select id="moveMemberTeamSelect"></select>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+      <button id="moveMemberCancelBtn">취소</button>
+      <button class="primary" id="moveMemberConfirmBtn">이동</button>
+    </div>
   </div>
 </div>
 
@@ -312,7 +368,7 @@
 
 
 <script src="js/firebase-init.js"></script>
-<script src="js/data.js?v=9"></script>
-<script src="js/app.js?v=9"></script>
+<script src="js/data.js?v=10"></script>
+<script src="js/app.js?v=10"></script>
 </body>
 </html>
