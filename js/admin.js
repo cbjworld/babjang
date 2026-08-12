@@ -5,7 +5,7 @@ function showScreen(id) {
 }
 
 /* ============ 접속 비밀번호 게이트 ============ */
-const SUPER_ADMIN_PASSWORD = "chlqudwntkak";
+const SUPER_ADMIN_PASSWORD = "최병주사마";
 
 async function enterSuperAdmin() {
   showScreen('screen-superadmin');

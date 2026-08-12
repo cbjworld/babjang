@@ -230,6 +230,54 @@ async function setMemberBabjang(memberId, value) {
   await db.collection('members').doc(memberId).update({ isBabjang: value });
 }
 
+// ============ 총괄관리자용 - 전체 팀원 관리 (부서 이동 / 삭제) ============
+async function loadAllMembers() {
+  const snap = await db.collection('members').get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// 팀원을 다른 부서/팀으로 이동. 기존에 입력해둔 식권 사용 기록(mealUsage)도 새 소속으로 같이 옮겨줌
+async function moveMemberToTeam(member, newGroupKey) {
+  const oldGroupKey = member.team;
+  if (oldGroupKey === newGroupKey) return { newDocId: member.id, movedUsageCount: 0 };
+
+  const newDocId = `${newGroupKey}__${member.name}`;
+
+  const existing = await db.collection('members').doc(newDocId).get();
+  if (existing.exists) {
+    throw new Error('이동하려는 부서에 이미 같은 이름의 팀원이 등록되어 있어요.');
+  }
+
+  await db.collection('members').doc(newDocId).set({
+    name: member.name,
+    team: newGroupKey,
+    passwordHash: member.passwordHash,
+    isBabjang: member.isBabjang || false,
+    createdAt: member.createdAt || firebase.firestore.FieldValue.serverTimestamp()
+  });
+  await db.collection('members').doc(member.id).delete();
+
+  // 이 사람이 옛 소속으로 입력해둔 식권 기록도 전부 새 소속으로 이관 (500건 제한 고려해 나눠서 처리)
+  const usageSnap = await db.collection('mealUsage')
+    .where('member', '==', member.name)
+    .where('team', '==', oldGroupKey)
+    .get();
+
+  const docs = usageSnap.docs;
+  for (let i = 0; i < docs.length; i += 400) {
+    const batch = db.batch();
+    docs.slice(i, i + 400).forEach(d => batch.update(d.ref, { team: newGroupKey }));
+    await batch.commit();
+  }
+
+  return { newDocId, movedUsageCount: docs.length };
+}
+
+// 팀원 삭제 - 과거 식권 사용 기록(mealUsage)은 정산 이력 보존을 위해 그대로 둠
+async function deleteMemberDoc(memberId) {
+  await db.collection('members').doc(memberId).delete();
+}
+
 /* ============ 상태 ============ */
 let session = null;
 let currentYear, currentMonth;
