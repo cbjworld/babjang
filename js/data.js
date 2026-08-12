@@ -332,3 +332,4 @@ async function deleteMealEntryDoc(id) {
 const todayObj = new Date();
 currentYear = todayObj.getFullYear();
 currentMonth = todayObj.getMonth();
+
