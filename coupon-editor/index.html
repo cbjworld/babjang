@@ -138,6 +138,13 @@
   }
   .checkbox-label input{ accent-color:var(--accent); width:15px; height:15px; cursor:pointer; }
 
+  .radio-group{ display:flex; flex-direction:column; gap:8px; }
+  .radio-label{
+    display:flex; align-items:flex-start; gap:8px; font-size:12.5px; color:var(--text); cursor:pointer;
+  }
+  .radio-label input{ accent-color:var(--accent); width:15px; height:15px; cursor:pointer; margin-top:1px; flex-shrink:0; }
+  .radio-sub{ color:var(--text-secondary); font-size:11.5px; }
+
   .swatch-row{ display:flex; gap:7px; flex-wrap:wrap; }
   .swatch{
     width:22px; height:22px; border-radius:50%; padding:0; cursor:pointer;
@@ -243,6 +250,7 @@
   }
   .a4-page-mini{ background:var(--canvas-bg); border-radius:2px; position:relative; box-shadow:var(--shadow-canvas); flex-shrink:0; }
   .mini-ticket{ position:absolute; outline:1px solid #9a9a9a; }
+  .mini-ticket-blank{ background-image:repeating-linear-gradient(135deg, rgba(0,0,0,0.06), rgba(0,0,0,0.06) 3px, transparent 3px, transparent 7px) !important; }
 
   .context-menu{
     position:fixed; z-index:999; background:var(--surface); border:1px solid var(--border);
@@ -334,6 +342,20 @@
             <label class="checkbox-label"><input type="checkbox" id="f-mark-in">(인) 표시</label>
             <label class="checkbox-label"><input type="checkbox" id="f-mark-sign">(서명) 표시</label>
           </div>
+        </div>
+        <div class="field" id="pageLayoutModeField">
+          <label>여러 명 인쇄 방식</label>
+          <div class="radio-group" id="pageLayoutModeRadios">
+            <label class="radio-label">
+              <input type="radio" name="pageLayoutMode" value="byPerson" checked>
+              사람별로 한 장씩 <span class="radio-sub">(기존 방식 · 1명당 1~20번 전부)</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="pageLayoutMode" value="byNumber">
+              번호별로 모아서 <span class="radio-sub">(겹쳐 자르기용 · 1·11번, 2·12번…끼리 한 장)</span>
+            </label>
+          </div>
+          <p class="hint" id="pageLayoutModeHint"></p>
         </div>
         <div class="field-row">
           <div class="field">
@@ -634,6 +656,10 @@
     ticketW: SIZE_PRESETS.vertical.w,
     ticketH: SIZE_PRESETS.vertical.h,
     bgColor: '#FFFFFF',
+    // 'byPerson' (기존): 한 사람당 한 장, 그 사람의 번호 1~20을 모두 담음.
+    // 'byNumber' (겹쳐 자르기용): 한 장에 특정 번호(쌍)만 모아, 여러 사람이 나눠 담김 —
+    // 인쇄된 장들을 순서대로 겹쳐 자르면 같은 위치끼리 모여 한 사람 몫이 완성됨.
+    pageLayoutMode: 'byPerson',
     data: {
       dept:'', phone:'', name:'', yearMonth: nextYM(),
       amount: 9000, title:'식권', characterSrc: null, nameMark: null,
@@ -975,9 +1001,133 @@
   // Fill the available column width so the A4 sheet reads clearly instead of
   // sitting in a small box — height then follows from the page's own portrait
   // or landscape proportions rather than being capped independently.
-  function renderA4Mini(){
+  function chunk(arr, size){
+    var out = [];
+    for(var i=0; i<arr.length; i+=size) out.push(arr.slice(i, i+size));
+    return out;
+  }
+
+  // Figures out which (person, ticket number) — if any — belongs in grid cell
+  // n (1-based, row-major) of one page, for whichever pageLayoutMode is active.
+  // 'byPerson': every cell on the page is the same person, numbered 1..cellCount.
+  // 'byNumber': the page covers exactly ONE number-pair (band, band+half) — the
+  // first half of the cells are that group's people at `band`, the second half
+  // the same people at `band+half`. Printing every band for a group, then
+  // stacking those pages and cutting through one grid cell, pulls out one
+  // person's full 1..cellCount run in two matching piles (their `band` pile and
+  // their `band+half` pile) — no manual sorting needed afterward.
+  function cellAssignment(spec, n){
+    if(spec.mode === 'byNumber'){
+      var half = spec.half;
+      var slotIdx, number;
+      if(n <= half){ slotIdx = n - 1; number = spec.band; }
+      else { slotIdx = n - half - 1; number = spec.band + half; }
+      var person = spec.group[slotIdx];
+      return person !== undefined ? { person: person, number: number } : null;
+    }
+    return { person: spec.personName, number: n };
+  }
+
+  // The full list of pages to produce (each a lightweight spec, not yet built
+  // DOM), for the currently selected pageLayoutMode. Shared by the A4 mini
+  // preview and the real print/PDF output so they can never drift apart.
+  function buildPagePlan(){
     var L = pageLayout();
     var names = getNames();
+    var cellCount = L.cols * L.rows;
+    if(state.pageLayoutMode === 'byNumber'){
+      var half = Math.max(1, Math.floor(cellCount / 2));
+      var groups = chunk(names, half);
+      var specs = [];
+      groups.forEach(function(group, groupIdx){
+        for(var band = 1; band <= half; band++){
+          specs.push({ mode:'byNumber', half:half, band:band, group:group, groupIdx:groupIdx, groupCount:groups.length });
+        }
+      });
+      return { L:L, specs:specs, names:names, half:half };
+    }
+    var specs = names.map(function(personName){ return { mode:'byPerson', personName:personName }; });
+    return { L:L, specs:specs, names:names };
+  }
+
+  // Builds one physical page as DOM — either real mm-sized print output, or a
+  // scaled px-sized mini preview (domOpts.forMini) — from a page spec out of
+  // buildPagePlan(). A cell with no assignment (byNumber mode, group smaller
+  // than half) still shows its cut-guide outline, just with nothing printed
+  // inside, so the stack-and-cut alignment isn't thrown off.
+  function buildPageDom(L, spec, isLast, domOpts){
+    var page = document.createElement('div');
+    if(domOpts.forMini){
+      page.className = 'a4-page-mini';
+      page.style.width = (L.pageW*domOpts.scale) + 'px';
+      page.style.height = (L.pageH*domOpts.scale) + 'px';
+    } else {
+      page.style.position = 'relative';
+      page.style.width = L.pageW + 'mm';
+      page.style.height = L.pageH + 'mm';
+      page.style.background = '#fff';
+      if(!isLast) page.style.pageBreakAfter = 'always';
+    }
+
+    for(var r=0; r<L.rows; r++){
+      for(var c=0; c<L.cols; c++){
+        var n = r*L.cols + c + 1;
+        var assign = cellAssignment(spec, n);
+        var leftMM = MARGIN_MM + L.offX + c*L.cellW;
+        var topMM = MARGIN_MM + L.offY + r*L.cellH;
+        var outer = document.createElement('div');
+        if(domOpts.forMini){
+          outer.className = 'mini-ticket';
+          outer.style.left = (leftMM*domOpts.scale) + 'px';
+          outer.style.top = (topMM*domOpts.scale) + 'px';
+          outer.style.width = (L.cellW*domOpts.scale) + 'px';
+          outer.style.height = (L.cellH*domOpts.scale) + 'px';
+        } else {
+          outer.style.position = 'absolute';
+          outer.style.left = leftMM + 'mm';
+          outer.style.top = topMM + 'mm';
+          outer.style.width = L.cellW + 'mm';
+          outer.style.height = L.cellH + 'mm';
+          // Cut guide — a real line printed at each ticket's edge (outline, so it
+          // doesn't add to the box's own size or shift anything inside it).
+          outer.style.outline = '0.15mm solid #999';
+          outer.style.outlineOffset = '-0.075mm';
+        }
+        outer.style.background = state.bgColor || '#fff';
+        if(!assign) outer.classList.add('mini-ticket-blank');
+
+        var inner = outer;
+        if(L.rotate){
+          inner = document.createElement('div');
+          inner.style.position = 'absolute';
+          inner.style.left = '50%'; inner.style.top = '50%';
+          if(domOpts.forMini){
+            inner.style.width = (state.ticketW*domOpts.scale) + 'px';
+            inner.style.height = (state.ticketH*domOpts.scale) + 'px';
+          } else {
+            inner.style.width = state.ticketW + 'mm';
+            inner.style.height = state.ticketH + 'mm';
+          }
+          inner.style.transform = 'translate(-50%,-50%) rotate(90deg)';
+          outer.appendChild(inner);
+        }
+
+        if(assign){
+          state.elements.forEach(function(el){
+            inner.appendChild(buildElNode(el, domOpts.forMini
+              ? { unit:'px', scale:domOpts.scale, interactive:false, number:assign.number, name:assign.person }
+              : { unit:'mm', interactive:false, number:assign.number, name:assign.person }));
+          });
+        }
+        page.appendChild(outer);
+      }
+    }
+    return page;
+  }
+
+  function renderA4Mini(){
+    var plan = buildPagePlan();
+    var L = plan.L;
     var wrap = document.getElementById('a4MiniWrap');
     var boxW = wrap.clientWidth || 340;
     // scale here is CSS px per mm, chosen so the page is exactly boxW wide (mini.style.width
@@ -986,101 +1136,44 @@
     var scale = boxW / L.pageW;
     wrap.innerHTML = '';
 
-    document.getElementById('a4Heading').textContent =
-      names.length > 1 ? ('A4 미리보기 · ' + names.length + '명, 총 ' + names.length + '장') : 'A4 미리보기';
+    var total = plan.specs.length;
+    if(plan.L && state.pageLayoutMode === 'byNumber'){
+      document.getElementById('a4Heading').textContent =
+        'A4 미리보기 · 번호별 모아 자르기, 총 ' + total + '장';
+    } else {
+      document.getElementById('a4Heading').textContent =
+        total > 1 ? ('A4 미리보기 · ' + total + '명, 총 ' + total + '장') : 'A4 미리보기';
+    }
 
-    names.forEach(function(personName, pageIdx){
+    plan.specs.forEach(function(spec, pageIdx){
       var block = document.createElement('div');
       block.className = 'a4-mini-block';
-      if(names.length > 1 || personName){
+      var labelText;
+      if(spec.mode === 'byNumber'){
+        labelText = (pageIdx+1) + '/' + total + ' · ' + spec.band + '번 · ' + (spec.band + spec.half) + '번';
+        if(spec.groupCount > 1) labelText += ' (그룹 ' + (spec.groupIdx+1) + '/' + spec.groupCount + ')';
+      } else if(total > 1 || spec.personName){
+        labelText = total > 1 ? ((pageIdx+1) + '/' + total + ' · ' + (spec.personName || '이름 없음')) : (spec.personName || '이름');
+      }
+      if(labelText){
         var label = document.createElement('div');
         label.className = 'a4-mini-label';
-        label.textContent = names.length > 1
-          ? ((pageIdx+1) + '/' + names.length + ' · ' + (personName || '이름 없음'))
-          : (personName || '이름');
+        label.textContent = labelText;
         block.appendChild(label);
       }
-      var mini = document.createElement('div');
-      mini.className = 'a4-page-mini';
-      mini.style.width = (L.pageW*scale) + 'px';
-      mini.style.height = (L.pageH*scale) + 'px';
-
-      for(var r=0; r<L.rows; r++){
-        for(var c=0; c<L.cols; c++){
-          var n = r*L.cols + c + 1;
-          var leftMM = MARGIN_MM + L.offX + c*L.cellW;
-          var topMM = MARGIN_MM + L.offY + r*L.cellH;
-          var outer = document.createElement('div');
-          outer.className = 'mini-ticket';
-          outer.style.left = (leftMM*scale) + 'px';
-          outer.style.top = (topMM*scale) + 'px';
-          outer.style.width = (L.cellW*scale) + 'px';
-          outer.style.height = (L.cellH*scale) + 'px';
-          outer.style.background = state.bgColor || '#fff';
-          var inner = outer;
-          if(L.rotate){
-            inner = document.createElement('div');
-            inner.style.position = 'absolute';
-            inner.style.left = '50%'; inner.style.top = '50%';
-            inner.style.width = (state.ticketW*scale) + 'px';
-            inner.style.height = (state.ticketH*scale) + 'px';
-            inner.style.transform = 'translate(-50%,-50%) rotate(90deg)';
-            outer.appendChild(inner);
-          }
-          state.elements.forEach(function(el){
-            inner.appendChild(buildElNode(el, {unit:'px', scale:scale, interactive:false, number:n, name:personName}));
-          });
-          mini.appendChild(outer);
-        }
-      }
-      block.appendChild(mini);
+      block.appendChild(buildPageDom(L, spec, pageIdx === total - 1, { forMini:true, scale:scale }));
       wrap.appendChild(block);
     });
-  }
 
-  // One physical A4 page for one person's 20 tickets, with `name` fixed for
-  // every ticket on it. Comma-separated names become one page each.
-  function buildOnePrintPage(L, personName, isLast){
-    var page = document.createElement('div');
-    page.style.position = 'relative';
-    page.style.width = L.pageW + 'mm';
-    page.style.height = L.pageH + 'mm';
-    page.style.background = '#fff';
-    if(!isLast) page.style.pageBreakAfter = 'always';
-
-    for(var r=0; r<L.rows; r++){
-      for(var c=0; c<L.cols; c++){
-        var n = r*L.cols + c + 1;
-        var leftMM = MARGIN_MM + L.offX + c*L.cellW;
-        var topMM = MARGIN_MM + L.offY + r*L.cellH;
-        var outer = document.createElement('div');
-        outer.style.position = 'absolute';
-        outer.style.left = leftMM + 'mm';
-        outer.style.top = topMM + 'mm';
-        outer.style.width = L.cellW + 'mm';
-        outer.style.height = L.cellH + 'mm';
-        outer.style.background = state.bgColor || '#fff';
-        // Cut guide — a real line printed at each ticket's edge (outline, so it
-        // doesn't add to the box's own size or shift anything inside it).
-        outer.style.outline = '0.15mm solid #999';
-        outer.style.outlineOffset = '-0.075mm';
-        var inner = outer;
-        if(L.rotate){
-          inner = document.createElement('div');
-          inner.style.position = 'absolute';
-          inner.style.left = '50%'; inner.style.top = '50%';
-          inner.style.width = state.ticketW + 'mm';
-          inner.style.height = state.ticketH + 'mm';
-          inner.style.transform = 'translate(-50%,-50%) rotate(90deg)';
-          outer.appendChild(inner);
-        }
-        state.elements.forEach(function(el){
-          inner.appendChild(buildElNode(el, {unit:'mm', interactive:false, number:n, name:personName}));
-        });
-        page.appendChild(outer);
+    var hintEl = document.getElementById('pageLayoutModeHint');
+    if(hintEl){
+      var cellCount = L.cols * L.rows;
+      if(state.pageLayoutMode === 'byNumber'){
+        hintEl.textContent = '한 사람당 ' + cellCount + '장(1~' + cellCount + '번) 기준, 최대 ' + plan.half + '명씩 묶어 총 ' + total + '장을 인쇄해요. 인쇄된 순서 그대로 겹쳐서 자르면, 같은 위치에서 나온 조각들이 한 사람의 전체 번호가 됩니다.';
+      } else {
+        hintEl.textContent = '사람마다 한 장씩, 그 사람의 1~' + cellCount + '번이 모두 담긴 페이지가 나와요.';
       }
     }
-    return page;
   }
 
   // Artifacts render inside a sandboxed iframe, and window.print() on the
@@ -1088,15 +1181,15 @@
   // Opening the print page in a real top-level tab sidesteps that sandbox,
   // so the browser's normal print / "Save as PDF" dialog actually appears.
   var FONTS_LINK = '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Gaegu:wght@400;700&family=Black+Han+Sans&family=Jua&family=Do+Hyeon&family=Gowun+Dodum&family=Gamja+Flower&family=Song+Myung&display=swap">';
-  // Builds the shared page layout + one DOM page per name — used by both the
-  // print dialog and the direct PDF download so they always match exactly.
+  // Builds the shared page layout + one real (mm-sized) DOM page per plan
+  // entry — used by both the print dialog and the direct PDF download so they
+  // always match exactly (and match the A4 mini preview, from the same plan).
   function buildPrintDoc(){
-    var L = pageLayout();
-    var names = getNames();
-    var pages = names.map(function(personName, i){
-      return buildOnePrintPage(L, personName, i === names.length - 1);
+    var plan = buildPagePlan();
+    var pages = plan.specs.map(function(spec, i){
+      return buildPageDom(plan.L, spec, i === plan.specs.length - 1, { forMini:false });
     });
-    return { L: L, pages: pages, names: names };
+    return { L: plan.L, pages: pages, names: plan.names };
   }
 
   function printTickets(){
@@ -1694,6 +1787,13 @@
   document.getElementById('f-dept').addEventListener('input', function(e){ state.data.dept = e.target.value; renderEditCanvas(); });
   document.getElementById('f-phone').addEventListener('input', function(e){ state.data.phone = e.target.value; renderEditCanvas(); });
   document.getElementById('f-name').addEventListener('input', function(e){ state.data.name = e.target.value; renderEditCanvas(); });
+  Array.from(document.querySelectorAll('input[name="pageLayoutMode"]')).forEach(function(r){
+    r.addEventListener('change', function(){
+      if(!r.checked) return;
+      state.pageLayoutMode = r.value;
+      renderA4Mini();
+    });
+  });
   var markIn = document.getElementById('f-mark-in');
   var markSign = document.getElementById('f-mark-sign');
   markIn.addEventListener('change', function(){
