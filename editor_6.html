@@ -1,0 +1,1878 @@
+<title>식권 디자이너</title>
+<style>
+  :root{
+    --bg:#F5F5F7;
+    --surface:#FFFFFF;
+    --surface-2:#FBFBFD;
+    --fill:#EDEDF0;
+    --fill-2:#E4E4E8;
+    --text:#1D1D1F;
+    --text-secondary:#6E6E73;
+    --border:rgba(0,0,0,0.08);
+    --accent:#0071E3;
+    --accent-2:#0077ED;
+    --danger:#FF3B30;
+    --canvas-bg:#FFFFFF;
+    --shadow-card: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.05);
+    --shadow-canvas: 0 4px 30px rgba(0,0,0,.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#000000; --surface:#1C1C1E; --surface-2:#161618;
+      --fill:#2C2C2E; --fill-2:#3A3A3C;
+      --text:#F5F5F7; --text-secondary:#98989D;
+      --border:rgba(255,255,255,0.1);
+      --accent:#2997FF; --accent-2:#409CFF;
+      --canvas-bg:#F4F1E4;
+      --shadow-card: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.4);
+      --shadow-canvas: 0 4px 30px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#000000; --surface:#1C1C1E; --surface-2:#161618;
+    --fill:#2C2C2E; --fill-2:#3A3A3C;
+    --text:#F5F5F7; --text-secondary:#98989D;
+    --border:rgba(255,255,255,0.1);
+    --accent:#2997FF; --accent-2:#409CFF;
+    --canvas-bg:#F4F1E4;
+    --shadow-card: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.4);
+    --shadow-canvas: 0 4px 30px rgba(0,0,0,.5);
+  }
+  *{ box-sizing:border-box; }
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+    font-size:14px; -webkit-font-smoothing:antialiased;
+  }
+  button{ font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
+  input, select{ font-family:inherit; }
+  ::selection{ background:var(--accent); color:#fff; }
+
+  .app{ max-width:1360px; margin:0 auto; padding:22px 22px 32px; }
+
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:16px; flex-wrap:wrap; padding-bottom:20px; margin-bottom:26px;
+  }
+  .brandline .kicker{
+    font-size:11.5px; font-weight:600; letter-spacing:.04em; color:var(--accent); text-transform:uppercase;
+  }
+  .brandline h1{
+    font-size:26px; margin:2px 0 0; font-weight:700; letter-spacing:-0.015em;
+  }
+  .tpl-controls{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .tpl-controls select{
+    border:1px solid var(--border); background:var(--surface); color:var(--text);
+    border-radius:10px; padding:8px 12px; font-size:12.5px;
+  }
+
+  .btn{
+    border-radius:980px; padding:8px 16px; font-size:13px; font-weight:600;
+    background:var(--fill); color:var(--text); transition:opacity .15s, background .15s;
+  }
+  .btn:hover{ background:var(--fill-2); }
+  .btn.primary{ background:var(--accent); color:#fff; }
+  .btn.primary:hover{ background:var(--accent-2); }
+  .btn.small{ padding:6px 12px; font-size:12px; }
+  .btn.subtle{ background:transparent; color:var(--text-secondary); padding:6px 10px; }
+  .btn.subtle:hover{ color:var(--text); background:var(--fill); }
+
+  .layout{
+    display:grid; grid-template-columns: 264px 1fr 480px; gap:20px; align-items:start;
+  }
+  @media (max-width: 1280px){ .layout{ grid-template-columns:1fr; } }
+
+  .panel{
+    background:var(--surface); border:1px solid var(--border); border-radius:18px;
+    padding:18px; box-shadow:var(--shadow-card);
+  }
+  .panel + .panel{ margin-top:16px; }
+  .panel h2{
+    font-size:12px; letter-spacing:.02em; color:var(--text-secondary);
+    margin:0 0 14px; font-weight:600;
+  }
+  .field{ margin-bottom:14px; }
+  .field:last-child{ margin-bottom:0; }
+  .field label{ display:block; font-size:12px; color:var(--text-secondary); margin-bottom:6px; font-weight:500; }
+  .field .row-label{ display:flex; justify-content:space-between; align-items:baseline; }
+  .field .row-label span.val{ font-size:11.5px; color:var(--text-secondary); font-variant-numeric:tabular-nums; }
+
+  .field input[type=text], .field input[type=number], .field input[type=month], .field select{
+    width:100%; border:1px solid var(--border); background:var(--fill);
+    color:var(--text); border-radius:10px; padding:9px 11px; font-size:13.5px;
+    outline:none;
+  }
+  .field input:focus, .field select:focus{ box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); border-color:var(--accent); }
+  .field input[type=color]{
+    width:100%; height:34px; border:1px solid var(--border); border-radius:10px; padding:3px; background:var(--fill);
+  }
+  .field-row{ display:flex; gap:10px; }
+  .field-row .field{ flex:1; }
+
+  .phone-input{ display:flex; align-items:center; border:1px solid var(--border); background:var(--fill); border-radius:10px; overflow:hidden; }
+  .phone-input .prefix{ padding:9px 4px 9px 11px; color:var(--text-secondary); font-size:13.5px; white-space:nowrap; }
+  .phone-input input{ border:none; background:transparent; padding:9px 11px 9px 2px; font-size:13.5px; color:var(--text); outline:none; width:100%; }
+
+  input[type=range]{
+    -webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:2px;
+    background:var(--fill-2); accent-color:var(--accent); margin:6px 0 2px;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+    background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.35), 0 0 0 1px rgba(0,0,0,.06);
+    cursor:pointer; margin-top:-7px;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:18px; height:18px; border-radius:50%; background:#fff; border:none;
+    box-shadow:0 1px 4px rgba(0,0,0,.35), 0 0 0 1px rgba(0,0,0,.06); cursor:pointer;
+  }
+
+  .segmented{ display:inline-flex; background:var(--fill); border-radius:10px; padding:3px; gap:2px; width:100%; }
+  .segmented .seg{
+    flex:1; text-align:center; padding:7px 8px; border-radius:8px; font-size:12px;
+    color:var(--text-secondary); font-weight:500; white-space:nowrap; cursor:pointer;
+  }
+  .checkbox-label{
+    display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-secondary); cursor:pointer;
+  }
+  .checkbox-label input{ accent-color:var(--accent); width:15px; height:15px; cursor:pointer; }
+
+  .swatch-row{ display:flex; gap:7px; flex-wrap:wrap; }
+  .swatch{
+    width:22px; height:22px; border-radius:50%; padding:0; cursor:pointer;
+    border:1px solid var(--border); position:relative; flex-shrink:0;
+  }
+  .swatch.selected{ box-shadow:0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+  .swatch-transparent{
+    background:
+      linear-gradient(45deg, var(--fill-2) 25%, transparent 25%, transparent 75%, var(--fill-2) 75%) 0 0/10px 10px,
+      linear-gradient(45deg, var(--fill-2) 25%, transparent 25%, transparent 75%, var(--fill-2) 75%) 5px 5px/10px 10px,
+      var(--surface);
+  }
+  .swatch-more{
+    display:flex; align-items:center; justify-content:center; background:var(--fill);
+    color:var(--text-secondary); font-size:15px; font-weight:600; overflow:hidden;
+  }
+  .swatch-more input[type=color]{ position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+  .segmented .seg.active{ background:var(--surface); color:var(--text); font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,.12); }
+  .segmented.wrap{ flex-wrap:wrap; }
+  .segmented.wrap .seg{ flex:none; }
+
+  .toolbar-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .hint{ font-size:12px; color:var(--text-secondary); line-height:1.5; margin:8px 0 0; }
+
+  /* canvas area */
+  .canvas-wrap{ display:flex; flex-direction:column; align-items:center; gap:12px; }
+  .canvas-outer{
+    background:
+      linear-gradient(45deg, var(--fill) 25%, transparent 25%) -8px 0/16px 16px,
+      linear-gradient(-45deg, var(--fill) 25%, transparent 25%) -8px 0/16px 16px,
+      var(--surface-2);
+    border:1px solid var(--border); border-radius:20px; padding:18px;
+    display:flex; align-items:center; justify-content:center;
+    overflow:auto; max-width:100%; min-height:260px;
+  }
+  .ticket-canvas{
+    position:relative; background:var(--canvas-bg);
+    box-shadow:var(--shadow-canvas); border-radius:2px;
+  }
+  .el{
+    position:absolute; user-select:none; cursor:grab;
+  }
+  .el.dragging{ cursor:grabbing; }
+  .el.selected .el-inner{ outline:2px solid var(--accent); outline-offset:1px; }
+  /* The selected element's button overlay sits on top of everything at the same
+     box position — pointer-events:none on the box itself lets clicks fall through
+     to the real element underneath (so dragging/selecting still works), while each
+     small button re-enables its own hit area. */
+  .selection-overlay{ pointer-events:none; cursor:default; }
+  .selection-overlay > *{ pointer-events:auto; }
+  .el-inner{
+    position:absolute; inset:0; overflow:hidden;
+    display:flex; white-space:pre-wrap; word-break:break-word;
+  }
+  .el .resize-handle{
+    position:absolute; right:-6px; bottom:-6px; width:13px; height:13px;
+    border-radius:50%; background:var(--accent); border:2px solid #fff;
+    cursor:nwse-resize;
+  }
+  .el .del-btn{
+    position:absolute; top:-26px; right:-8px; width:22px; height:22px;
+    border-radius:50%; background:var(--danger); color:#fff; font-size:13px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; line-height:1;
+    box-shadow:0 1px 4px rgba(0,0,0,.3); z-index:5;
+  }
+  .el .crop-btn{
+    position:absolute; top:-26px; left:-8px; width:24px; height:24px;
+    border-radius:50%; background:var(--surface); color:var(--text);
+    box-shadow:0 1px 4px rgba(0,0,0,.3), 0 0 0 1px var(--border);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:5;
+  }
+  .el .layer-btn{
+    position:absolute; bottom:-26px; width:22px; height:22px;
+    border-radius:50%; background:var(--surface); color:var(--text);
+    box-shadow:0 1px 4px rgba(0,0,0,.3), 0 0 0 1px var(--border);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:5; font-size:11px;
+  }
+  .el .layer-btn.front{ left:-8px; }
+  .el .layer-btn.back{ left:20px; }
+  .el-shape-circle{ border-radius:50%; }
+  .el-img-placeholder{
+    background:repeating-linear-gradient(135deg, var(--fill), var(--fill) 4px, transparent 4px, transparent 8px);
+    border:1.5px dashed var(--accent);
+    align-items:center; justify-content:center; text-align:center;
+    font-size:10px; color:var(--text-secondary);
+  }
+  .el img{ width:100%; height:100%; object-fit:cover; pointer-events:none; }
+
+  .size-note{ font-size:12px; color:var(--text-secondary); font-variant-numeric:tabular-nums; }
+
+  .props-empty{ color:var(--text-secondary); font-size:12.5px; line-height:1.6; text-align:center; padding:20px 4px; }
+
+  .right-col{ display:flex; flex-direction:column; gap:16px; }
+  .right-col .panel + .panel{ margin-top:0; }
+  .a4-mini-wrap{
+    display:flex; flex-direction:column; align-items:center; gap:16px;
+    max-height:75vh; overflow:auto; padding:2px;
+  }
+  .a4-mini-block{ display:flex; flex-direction:column; align-items:center; gap:6px; flex-shrink:0; }
+  .a4-mini-label{
+    font-size:11.5px; color:var(--text-secondary); font-weight:600;
+    text-align:center;
+  }
+  .a4-page-mini{ background:var(--canvas-bg); border-radius:2px; position:relative; box-shadow:var(--shadow-canvas); flex-shrink:0; }
+  .mini-ticket{ position:absolute; outline:1px solid #9a9a9a; }
+
+  .context-menu{
+    position:fixed; z-index:999; background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; box-shadow:var(--shadow-card); padding:5px; min-width:140px;
+    display:none;
+  }
+  .context-menu .item{
+    padding:8px 12px; border-radius:8px; font-size:13px; color:var(--text);
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .context-menu .item:hover{ background:var(--fill); }
+  .context-menu .item.danger{ color:var(--danger); }
+  .context-menu .item .kbd{ font-size:11px; color:var(--text-secondary); }
+
+  .crop-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55);
+    z-index:2000; align-items:center; justify-content:center;
+  }
+  .crop-backdrop.open{ display:flex; }
+  .crop-modal{
+    background:var(--surface); border-radius:16px; padding:20px; width:min(560px, 92vw);
+    box-shadow:var(--shadow-card);
+  }
+  .crop-modal h3{ margin:0 0 4px; font-size:16px; }
+  .crop-hint{ margin:0 0 14px; font-size:12.5px; color:var(--text-secondary); }
+  .crop-stage{
+    position:relative; margin:0 auto; background:#111; border-radius:8px; overflow:hidden;
+    max-width:100%; user-select:none;
+  }
+  .crop-stage img{ display:block; width:100%; height:100%; user-select:none; -webkit-user-drag:none; pointer-events:none; }
+  .crop-rect{
+    position:absolute; box-shadow:0 0 0 9999px rgba(0,0,0,0.55); border:1.5px solid #fff;
+    cursor:move; box-sizing:border-box;
+  }
+  .crop-handle{
+    position:absolute; width:14px; height:14px; background:#fff; border:1.5px solid var(--accent, #0071E3);
+    border-radius:50%; box-sizing:border-box;
+  }
+  .crop-handle[data-corner="nw"]{ left:-7px; top:-7px; cursor:nwse-resize; }
+  .crop-handle[data-corner="ne"]{ right:-7px; top:-7px; cursor:nesw-resize; }
+  .crop-handle[data-corner="sw"]{ left:-7px; bottom:-7px; cursor:nesw-resize; }
+  .crop-handle[data-corner="se"]{ right:-7px; bottom:-7px; cursor:nwse-resize; }
+  .crop-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+
+
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Gaegu:wght@400;700&family=Black+Han+Sans&family=Jua&family=Do+Hyeon&family=Gowun+Dodum&family=Gamja+Flower&family=Song+Myung&display=swap">
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="brandline">
+      <div class="kicker">식권제작기 · 편집기</div>
+      <h1>식권 디자이너</h1>
+    </div>
+    <div class="tpl-controls">
+      <select id="tplSelect"><option value="">저장된 부서 템플릿…</option></select>
+      <button class="btn small" id="loadTplBtn">불러오기</button>
+      <button class="btn small primary" id="saveTplBtn">템플릿 저장</button>
+    </div>
+  </div>
+
+  <div class="layout">
+
+    <!-- LEFT -->
+    <div class="left-col">
+
+      <div class="panel">
+        <h2>부서 정보</h2>
+        <div class="field">
+          <label>부서명</label>
+          <input type="text" id="f-dept" placeholder="예) 한남동 행정민원팀">
+        </div>
+        <div class="field">
+          <label>부서 전화번호</label>
+          <div class="phone-input">
+            <span class="prefix">02-2199-</span>
+            <input type="text" id="f-phone" placeholder="1234" maxlength="6">
+          </div>
+        </div>
+        <div class="field">
+          <label>팀원명</label>
+          <input type="text" id="f-name" placeholder="예) 최병주, 최병순 (여러 명은 콤마로 구분)" style="margin-bottom:8px;">
+          <div style="display:flex; gap:16px;">
+            <label class="checkbox-label"><input type="checkbox" id="f-mark-in">(인) 표시</label>
+            <label class="checkbox-label"><input type="checkbox" id="f-mark-sign">(서명) 표시</label>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>년월</label>
+            <input type="month" id="f-yearmonth">
+          </div>
+          <div class="field">
+            <label>금액</label>
+            <input type="number" id="f-amount" step="500">
+          </div>
+        </div>
+        <div class="field">
+          <label>부서 캐릭터 이미지</label>
+          <input type="text" id="f-character-name" disabled placeholder="파일을 선택하세요" style="margin-bottom:6px;">
+          <input type="file" id="f-character" accept="image/*">
+        </div>
+        <div class="field">
+          <label>식권 이름 표기</label>
+          <div class="segmented" id="titlePills">
+            <span class="seg" data-title="식권">식권</span>
+            <span class="seg" data-title="食券">食券</span>
+            <span class="seg" data-title="Meal Coupon">Meal Coupon</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>식권번호</label>
+            <div class="segmented" id="numPrefixPills">
+              <span class="seg" data-val="on">No. 포함</span>
+              <span class="seg" data-val="off">번호만</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>번호 자릿수</label>
+            <div class="segmented" id="numPadPills">
+              <span class="seg" data-val="pad">01,02…</span>
+              <span class="seg" data-val="plain">1,2…</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>식권 크기</h2>
+        <div class="segmented" id="shapePills">
+          <span class="seg" data-shape="vertical">세로형</span>
+          <span class="seg" data-shape="horizontal">가로형</span>
+          <span class="seg" data-shape="square">정사각형</span>
+        </div>
+        <div class="field" style="margin-top:10px;">
+          <label>A4 배치</label>
+          <div class="segmented" id="gridModePills">
+            <span class="seg" data-grid="4x5">4×5</span>
+            <span class="seg" data-grid="5x4">5×4</span>
+          </div>
+        </div>
+        <div class="field" style="margin-top:14px;">
+          <div class="row-label"><label style="margin-bottom:0;">가로 길이</label><span class="val" id="wVal">50.0mm</span></div>
+          <input type="range" id="wSlider" min="25" max="140" step="0.5">
+        </div>
+        <div class="field">
+          <div class="row-label"><label style="margin-bottom:0;">세로 길이</label><span class="val" id="hVal">57.4mm</span></div>
+          <input type="range" id="hSlider" min="25" max="160" step="0.5">
+        </div>
+        <p class="hint" id="gridHint"></p>
+        <div class="field" style="margin-top:10px;">
+          <label>배경색</label>
+          <div id="bgColorPicker"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>요소 추가</h2>
+        <div class="toolbar-row">
+          <button class="btn small" id="addTextBtn">＋ 텍스트</button>
+          <button class="btn small" id="addImageBtn">＋ 이미지</button>
+          <input type="file" id="addImageInput" accept="image/*" style="display:none;">
+        </div>
+        <h2 style="margin-top:4px;">빠른 글꼴 적용</h2>
+        <div class="segmented wrap" id="fontPills">
+          <span class="seg" data-font="Noto Sans KR" style="font-family:'Noto Sans KR',sans-serif;">고딕</span>
+          <span class="seg" data-font="Noto Serif KR" style="font-family:'Noto Serif KR',serif;">명조</span>
+          <span class="seg" data-font="Gaegu" style="font-family:'Gaegu',cursive;">손글씨</span>
+          <span class="seg" data-font="Black Han Sans" style="font-family:'Black Han Sans',sans-serif;">임팩트</span>
+          <span class="seg" data-font="Jua" style="font-family:'Jua',sans-serif;">라운드</span>
+          <span class="seg" data-font="Do Hyeon" style="font-family:'Do Hyeon',sans-serif;">제목체</span>
+          <span class="seg" data-font="Gowun Dodum" style="font-family:'Gowun Dodum',sans-serif;">단정체</span>
+          <span class="seg" data-font="Gamja Flower" style="font-family:'Gamja Flower',cursive;">감성체</span>
+          <span class="seg" data-font="Song Myung" style="font-family:'Song Myung',serif;">붓글씨체</span>
+        </div>
+        <p class="hint">데이터 텍스트 요소 전체에 한 번에 적용돼요. 개별 요소는 오른쪽 속성 패널에서 따로 바꿀 수 있어요.</p>
+        <button class="btn subtle small" id="resetBtn" style="margin-top:8px;">배치 초기화</button>
+      </div>
+
+    </div>
+
+    <!-- CENTER -->
+    <div class="canvas-wrap">
+      <div class="canvas-outer" id="canvasOuter">
+        <div class="ticket-canvas" id="ticketCanvas"></div>
+      </div>
+      <div class="size-note" id="sizeNote"></div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right-col">
+      <div class="panel" id="propsPanel">
+        <h2>속성</h2>
+        <div class="props-empty" id="propsEmpty">캔버스에서 요소를 클릭하면<br>여기서 크기·글꼴·색을 바꿀 수 있어요.</div>
+        <div id="propsBody" style="display:none;"></div>
+      </div>
+
+      <div class="panel">
+        <h2 id="a4Heading">A4 미리보기</h2>
+        <div class="a4-mini-wrap" id="a4MiniWrap"></div>
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <button class="btn primary" id="pdfBtn" style="flex:1;">PDF로 저장</button>
+        <button class="btn" id="printBtn" style="flex:1;">인쇄</button>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="context-menu" id="ctxMenu">
+  <div class="item danger" id="ctxDelete"><span>요소 삭제</span><span class="kbd">Delete</span></div>
+</div>
+
+<div class="crop-backdrop" id="cropBackdrop">
+  <div class="crop-modal">
+    <h3>이미지 자르기</h3>
+    <p class="crop-hint">원하는 영역을 드래그해서 옮기거나, 모서리를 끌어 크기를 조절하세요.</p>
+    <div class="crop-stage" id="cropStage">
+      <img id="cropImg" alt="">
+      <div class="crop-rect" id="cropRect">
+        <div class="crop-handle" data-corner="nw"></div>
+        <div class="crop-handle" data-corner="ne"></div>
+        <div class="crop-handle" data-corner="sw"></div>
+        <div class="crop-handle" data-corner="se"></div>
+      </div>
+    </div>
+    <div class="crop-actions">
+      <button class="btn" id="cropCancelBtn">취소</button>
+      <button class="btn primary" id="cropApplyBtn">적용</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var PX_PER_MM = 96/25.4;
+  var EDIT_ZOOM = 3.4;
+  var MARGIN_MM = 5;
+  var PAGE_W = 210, PAGE_H = 297;
+  var USABLE_W = PAGE_W - MARGIN_MM*2;
+  var USABLE_H = PAGE_H - MARGIN_MM*2;
+
+  // Every shape's grid multiplies out to exactly 20 tickets per A4 sheet —
+  // that count never changes, only how the 20 cells are arranged. Horizontal
+  // tickets print on a landscape sheet, so its grid is sized against the
+  // landscape usable area (287 x 200mm) rather than the portrait one.
+  // Every shape always holds exactly 20 tickets per A4 sheet, but the 20 cells can be
+  // arranged either 4 columns × 5 rows or 5 columns × 4 rows — user-chosen per shape,
+  // with a shape-appropriate default (a tall ticket reads better in a 5×4 spread; a
+  // wide one in 4×5).
+  function defaultGridMode(shape){ return shape === 'vertical' ? '5x4' : '4x5'; }
+  function gridFor(shape, mode){
+    var m = mode || defaultGridMode(shape);
+    return m === '5x4' ? { cols:5, rows:4 } : { cols:4, rows:5 };
+  }
+  function maxSizeFor(shape, mode){
+    var g = gridFor(shape, mode);
+    var landscape = shape === 'horizontal';
+    var uW = landscape ? (PAGE_H - MARGIN_MM*2) : USABLE_W;
+    var uH = landscape ? (PAGE_W - MARGIN_MM*2) : USABLE_H;
+    var maxW = uW / g.cols, maxH = uH / g.rows;
+    if(shape === 'square'){ var side = Math.min(maxW, maxH); return { w:side, h:side }; }
+    return { w:maxW, h:maxH };
+  }
+  var SIZE_PRESETS = {
+    vertical: maxSizeFor('vertical'),
+    horizontal: maxSizeFor('horizontal'),
+    square: maxSizeFor('square')
+  };
+
+  var FONT_STACK = {
+    "Noto Sans KR": "'Noto Sans KR', sans-serif",
+    "Noto Serif KR": "'Noto Serif KR', serif",
+    "Gaegu": "'Gaegu', cursive",
+    "Black Han Sans": "'Black Han Sans', sans-serif",
+    "Jua": "'Jua', sans-serif",
+    "Do Hyeon": "'Do Hyeon', sans-serif",
+    "Gowun Dodum": "'Gowun Dodum', sans-serif",
+    "Gamja Flower": "'Gamja Flower', cursive",
+    "Song Myung": "'Song Myung', serif",
+    "IBM Plex Mono": "'IBM Plex Mono', monospace"
+  };
+  // Display label + font-selector option order for the fonts above (IBM Plex Mono is
+  // used only for the ticket number and isn't offered here — see the filter below).
+  var FONT_LABELS = {
+    "Noto Sans KR": "고딕체", "Noto Serif KR": "명조체", "Gaegu": "손글씨체",
+    "Black Han Sans": "임팩트체", "Jua": "라운드체", "Do Hyeon": "제목체",
+    "Gowun Dodum": "단정체", "Gamja Flower": "감성체", "Song Myung": "붓글씨체"
+  };
+
+  var measureCtx = document.createElement('canvas').getContext('2d');
+  function measureTextWidthPx(text, refPx, fontFamily, bold){
+    measureCtx.font = (bold ? 'bold ' : '') + refPx + 'px ' + fontFamily;
+    return measureCtx.measureText(text || '').width || 1;
+  }
+
+  // Sample text used only to size each default data box snugly around its
+  // content — real values are usually close to this length, and the user can
+  // still drag to resize afterward.
+  var SAMPLE_TEXT = {
+    dept: '마케팅팀', phone: '02-2199-1234', name: '김하늘 (서명)',
+    yearMonth: '2026년 9월', amount: '9,000원', title: 'Meal Coupon', number: 'No. 01'
+  };
+
+  function uid(){ return 'e' + Math.random().toString(36).slice(2,9); }
+
+  function defaultTemplate(){
+    return [
+      { id:uid(), dataKey:'character', type:'image', fx:.06, fy:.06, fw:.50, fh:.34 },
+      { id:uid(), dataKey:'title', type:'text', fx:.60, fy:.05, fw:.36, fh:.15, bold:true, align:'left', fontFamily:'Noto Serif KR', color:'var(--text)' },
+      { id:uid(), dataKey:'dept', type:'text', fx:.06, fy:.44, fw:.90, fh:.08, bold:false, align:'left', fontFamily:'Noto Sans KR', color:'var(--text)' },
+      { id:uid(), dataKey:'phone', type:'text', fx:.06, fy:.52, fw:.90, fh:.07, bold:false, align:'left', fontFamily:'Noto Sans KR', color:'var(--text-secondary)' },
+      { id:uid(), dataKey:'name', type:'text', fx:.06, fy:.63, fw:.56, fh:.10, bold:true, align:'left', fontFamily:'Noto Sans KR', color:'var(--text)' },
+      { id:uid(), dataKey:'yearMonth', type:'text', fx:.06, fy:.75, fw:.56, fh:.08, bold:false, align:'left', fontFamily:'Noto Sans KR', color:'var(--text)' },
+      { id:uid(), dataKey:'amount', type:'text', fx:.06, fy:.84, fw:.56, fh:.10, bold:true, align:'left', fontFamily:'Noto Sans KR', color:'var(--text)' },
+      { id:uid(), dataKey:'number', type:'text', fx:.64, fy:.72, fw:.32, fh:.22, bold:true, align:'center', fontFamily:'IBM Plex Mono', color:'var(--accent)' }
+    ];
+  }
+
+  // Shrinks a text element's box width back down to snugly fit its own current
+  // content at its current (height-derived) font size — same math as toMM's default-
+  // template fit, reused after a shape switch so a box that used to hug its text
+  // doesn't end up stretched into empty space just because the ticket got scaled.
+  function refitTextBoxWidth(el){
+    if(el.type !== 'text') return;
+    var text = resolveContent(el, {});
+    if(!text) return;
+    var fam = FONT_STACK[el.fontFamily] || FONT_STACK['Noto Sans KR'];
+    var fontPx = (el.h * PX_PER_MM) * 0.8;
+    var measured = measureTextWidthPx(text, fontPx, fam, el.bold);
+    var fitWmm = (measured / 0.94) / PX_PER_MM;
+    el.w = Math.max(8, Math.min(fitWmm, state.ticketW - el.x));
+  }
+
+  // Default layout keeps this much clear space from every ticket edge — clamped down
+  // for a very small ticket so the inset can never eat the whole box.
+  var TICKET_INNER_MARGIN_MM = 5;
+  function toMM(elements, w, h){
+    var mx = Math.min(TICKET_INNER_MARGIN_MM, w/4);
+    var my = Math.min(TICKET_INNER_MARGIN_MM, h/4);
+    var iw = w - mx*2, ih = h - my*2;
+    return elements.map(function(e){
+      var c = Object.assign({}, e);
+      if (typeof c.fx === 'number'){
+        c.x = mx + c.fx*iw; c.y = my + c.fy*ih; c.w = c.fw*iw; c.h = c.fh*ih;
+        delete c.fx; delete c.fy; delete c.fw; delete c.fh;
+
+        // Default boxes are drawn generously wide so nothing clips — shrink
+        // each one back down to roughly hug its typical text instead of
+        // leaving a big empty gap to the right of short content.
+        if(c.type === 'text' && c.dataKey && SAMPLE_TEXT[c.dataKey]){
+          var fam = FONT_STACK[c.fontFamily] || FONT_STACK['Noto Sans KR'];
+          var fontPx = (c.h * PX_PER_MM) * 0.8;
+          var measured = measureTextWidthPx(SAMPLE_TEXT[c.dataKey], fontPx, fam, c.bold);
+          var fitWmm = (measured / 0.94) / PX_PER_MM;
+          c.w = Math.max(8, Math.min(fitWmm, w - c.x));
+        }
+      }
+      return c;
+    });
+  }
+
+  function nextYM(){
+    var d = new Date(); d.setMonth(d.getMonth()+1);
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  }
+  function formatYM(ym){
+    if(!ym) return '';
+    var parts = ym.split('-');
+    if(parts.length<2) return ym;
+    return parts[0] + '년 ' + parseInt(parts[1],10) + '월';
+  }
+  function formatAmount(n){ return (Number(n)||0).toLocaleString('ko-KR') + '원'; }
+
+  var state = {
+    shape: 'vertical',
+    gridMode: defaultGridMode('vertical'),
+    ticketW: SIZE_PRESETS.vertical.w,
+    ticketH: SIZE_PRESETS.vertical.h,
+    bgColor: '#FFFFFF',
+    data: {
+      dept:'', phone:'', name:'', yearMonth: nextYM(),
+      amount: 9000, title:'식권', characterSrc: null, nameMark: null,
+      numberShowPrefix: true, numberPad: true
+    },
+    elements: [],
+    selectedId: null
+  };
+  state.elements = toMM(defaultTemplate(), state.ticketW, state.ticketH);
+
+  function formatNumber(n){
+    var text = state.data.numberPad ? String(n).padStart(2,'0') : String(n);
+    return state.data.numberShowPrefix ? ('No. ' + text) : text;
+  }
+
+  // Comma-separated names each get their own 20-ticket A4 sheet.
+  function getNames(){
+    var arr = (state.data.name || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+    return arr.length ? arr : [''];
+  }
+
+  // The untouched, full source image behind an element — before any crop is
+  // baked on top of it. Character-slot images live in state.data.characterSrc;
+  // freely-added images carry their own src.
+  function originalImageSrc(el){
+    if(el.dataKey === 'character') return state.data.characterSrc;
+    return el.src || null;
+  }
+
+  // The image actually shown for an element — the baked crop if one exists,
+  // otherwise the untouched original.
+  function resolveContent(el, opts){
+    if(el.type === 'image'){
+      return el.croppedSrc || originalImageSrc(el);
+    }
+    if(el.dataKey === 'dept') return state.data.dept || '부서명';
+    if(el.dataKey === 'phone') return '02-2199-' + (state.data.phone || '0000');
+    if(el.dataKey === 'name'){
+      var raw = (opts && opts.name != null) ? opts.name : getNames()[0];
+      var base = raw || '이름';
+      return state.data.nameMark ? (base + ' (' + state.data.nameMark + ')') : base;
+    }
+    if(el.dataKey === 'yearMonth') return formatYM(state.data.yearMonth);
+    if(el.dataKey === 'amount') return formatAmount(state.data.amount);
+    if(el.dataKey === 'title') return state.data.title;
+    if(el.dataKey === 'number') return formatNumber((opts && opts.number) || 1);
+    return el.text || '텍스트';
+  }
+
+  var PT_PER_MM = 2.8346;
+  // Text fills its own frame: font size is derived straight from the box's
+  // width and height (in real, physical px) — resize the box with the mouse
+  // and the text grows or shrinks to match, capped so it never overflows either side.
+  function fitFontSizePx(el, text){
+    var boxWpx = el.w * PX_PER_MM;
+    var boxHpx = el.h * PX_PER_MM;
+    var fam = FONT_STACK[el.fontFamily] || FONT_STACK['Noto Sans KR'];
+    var REF = 100;
+    var measured = measureTextWidthPx(text, REF, fam, el.bold);
+    var byWidth = REF * (boxWpx * 0.94) / measured;
+    var byHeight = boxHpx * 0.8;
+    return Math.max(6, Math.min(400, Math.min(byWidth, byHeight)));
+  }
+  // Font size must scale with the same px-per-mm factor as box position/size,
+  // so proportions match exactly between the edit canvas, the mini A4 preview and print.
+  function fontSizeCss(el, opts, text){
+    var px = fitFontSizePx(el, text);
+    if(opts.unit === 'mm') return (px * 0.75) + 'pt';
+    return ((px * opts.scale) / PX_PER_MM) + 'px';
+  }
+
+  // ---------- rendering ----------
+  function buildElNode(el, opts, zIndex){
+    var node = document.createElement('div');
+    node.className = 'el';
+    node.dataset.id = el.id;
+
+    function unitVal(v){ return opts.unit === 'mm' ? (v + 'mm') : (v*opts.scale + 'px'); }
+    node.style.left = unitVal(el.x);
+    node.style.top = unitVal(el.y);
+    node.style.width = unitVal(el.w);
+    node.style.height = unitVal(el.h);
+    // Stacking order follows the element's position in state.elements (앞으로/뒤로 buttons
+    // reorder that array) — always, selected or not, so clicking those buttons has a
+    // visible effect right away instead of the selected element already sitting pinned
+    // on top regardless of order. Its control buttons stay reachable a different way:
+    // see buildSelectionOverlay, appended last so it's never covered.
+    if(opts.interactive) node.style.zIndex = String(zIndex || 1);
+
+    // Content (text/image/shape) lives in an inner box that clips to the element's
+    // bounds; the outer .el stays overflow:visible so the crop/delete/layer buttons,
+    // which sit outside that box, are never clipped away and unclickable.
+    var inner = document.createElement('div');
+    inner.className = 'el-inner';
+    node.appendChild(inner);
+
+    if(el.type === 'text'){
+      var textContent = resolveContent(el, opts);
+      inner.style.fontFamily = FONT_STACK[el.fontFamily] || FONT_STACK['Noto Sans KR'];
+      inner.style.fontSize = fontSizeCss(el, opts, textContent);
+      inner.style.fontWeight = el.bold ? '700' : '400';
+      inner.style.color = el.color || 'var(--text)';
+      // .el-inner is a row-direction flex box: justify-content moves the text horizontally
+      // along that row (this is what left/center/right actually needs), while
+      // align-items only controls vertical centering — align-items alone (the old
+      // code) never moved anything left-to-right, which is why alignment looked broken.
+      inner.style.justifyContent = el.align === 'center' ? 'center' : el.align === 'right' ? 'flex-end' : 'flex-start';
+      inner.style.alignItems = 'center';
+      inner.style.textAlign = el.align || 'left';
+      inner.style.lineHeight = '1.1';
+      inner.textContent = textContent;
+    } else if(el.type === 'image'){
+      var src = resolveContent(el, opts);
+      if(src){
+        var img = document.createElement('img');
+        img.src = src;
+        img.draggable = false;
+        // A crop is baked into its own image (see openCropModal/applyCrop) at the
+        // exact region the user chose, so it's always shown whole (contain) here —
+        // resizing this box afterward only scales that fixed result, never cuts
+        // into it further the way fitting a *frame* around an image used to.
+        img.style.objectFit = 'contain';
+        inner.appendChild(img);
+      } else {
+        inner.classList.add('el-img-placeholder');
+        inner.textContent = el.dataKey === 'character' ? '캐릭터 이미지' : '이미지';
+      }
+    } else if(el.type === 'shape'){
+      inner.style.background = el.fill && el.fill !== 'transparent' ? el.fill : 'transparent';
+      inner.style.border = (el.strokeWidth||1.5) + 'px solid ' + (el.stroke || 'var(--accent)');
+      if(el.shapeKind === 'circle') inner.classList.add('el-shape-circle');
+      if(el.hint && opts.interactive){
+        inner.style.alignItems = 'center'; inner.style.justifyContent = 'center';
+        inner.style.fontSize = '9px'; inner.style.color = 'var(--text-secondary)';
+        inner.style.pointerEvents = 'none';
+        var hintSpan = document.createElement('span');
+        hintSpan.style.pointerEvents = 'none';
+        hintSpan.textContent = el.hint;
+        inner.appendChild(hintSpan);
+        inner.style.pointerEvents = '';
+      }
+    }
+
+    if(opts.interactive){
+      if(el.id === state.selectedId) node.classList.add('selected');
+      node.addEventListener('pointerdown', function(ev){ startDrag(ev, el); });
+      node.addEventListener('click', function(ev){ ev.stopPropagation(); selectElement(el.id); });
+      node.addEventListener('contextmenu', function(ev){
+        ev.preventDefault(); ev.stopPropagation();
+        selectElement(el.id);
+        openContextMenu(ev.clientX, ev.clientY);
+      });
+
+    }
+    return node;
+  }
+
+  // The selected element's resize/delete/layer/crop buttons, as their own overlay
+  // positioned exactly over that element — appended as the LAST child of the canvas
+  // (see renderEditCanvas) so it always paints on top, no matter where the element
+  // itself sits in front-to-back order. That keeps the buttons reachable while still
+  // letting "맨 앞으로 / 맨 뒤로" actually change what's visibly on top.
+  function buildSelectionOverlay(el, opts){
+    var node = document.createElement('div');
+    node.className = 'el selection-overlay';
+    node.style.zIndex = '1000';
+    function unitVal(v){ return opts.unit === 'mm' ? (v + 'mm') : (v*opts.scale + 'px'); }
+    node.style.left = unitVal(el.x);
+    node.style.top = unitVal(el.y);
+    node.style.width = unitVal(el.w);
+    node.style.height = unitVal(el.h);
+
+    var handle = document.createElement('div');
+    handle.className = 'resize-handle';
+    handle.addEventListener('pointerdown', function(ev){ ev.stopPropagation(); startResize(ev, el); });
+    node.appendChild(handle);
+
+    // Every button below sits on top of the element's own drag area, so its
+    // 'pointerdown' must stop right here — otherwise that pointerdown first
+    // bubbles up to node's own listener and starts a drag (which fully rebuilds
+    // the canvas mid-click, right out from under the button), and the button's
+    // own 'click' never gets to do its job.
+    var del = document.createElement('div');
+    del.className = 'del-btn'; del.textContent = '×'; del.title = '삭제';
+    del.addEventListener('pointerdown', function(ev){ ev.stopPropagation(); });
+    del.addEventListener('click', function(ev){ ev.stopPropagation(); deleteElement(el.id); });
+    node.appendChild(del);
+
+    var frontBtn = document.createElement('div');
+    frontBtn.className = 'layer-btn front'; frontBtn.title = '맨 앞으로';
+    frontBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>';
+    frontBtn.addEventListener('pointerdown', function(ev){ ev.stopPropagation(); });
+    frontBtn.addEventListener('click', function(ev){ ev.stopPropagation(); bringToFront(el.id); });
+    node.appendChild(frontBtn);
+
+    var backBtn = document.createElement('div');
+    backBtn.className = 'layer-btn back'; backBtn.title = '맨 뒤로';
+    backBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12l7 7 7-7"/></svg>';
+    backBtn.addEventListener('pointerdown', function(ev){ ev.stopPropagation(); });
+    backBtn.addEventListener('click', function(ev){ ev.stopPropagation(); sendToBack(el.id); });
+    node.appendChild(backBtn);
+
+    if(el.type === 'image' && originalImageSrc(el)){
+      var cropBtn = document.createElement('div');
+      cropBtn.className = 'crop-btn';
+      cropBtn.title = el.croppedSrc ? '다시 자르기' : '이미지 자르기';
+      cropBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>';
+      cropBtn.addEventListener('pointerdown', function(ev){ ev.stopPropagation(); });
+      cropBtn.addEventListener('click', function(ev){ ev.stopPropagation(); openCropModal(el); });
+      node.appendChild(cropBtn);
+    }
+    return node;
+  }
+
+  function computeGrid(w, h){
+    var g = gridFor(state.shape, state.gridMode);
+    var cols = g.cols, rows = g.rows;
+    var offX = (USABLE_W - cols*w) / 2;
+    var offY = (USABLE_H - rows*h) / 2;
+    return { cols:cols, rows:rows, offX:offX, offY:offY, count: cols*rows };
+  }
+
+  // 가로형은 낱장이 넓고 짧아서, 세워 든 A4보다 눕힌(가로) A4에 90도 돌려 채우면
+  // 낭비되는 여백 없이 정확히 20매가 들어간다. 다른 판형은 세로 A4를 그대로 쓴다.
+  function pageLayout(){
+    // Horizontal tickets are already wider than tall (5x4 grid), so on a
+    // landscape sheet they sit in their natural orientation — no rotation needed.
+    var landscape = state.shape === 'horizontal';
+    var pageW = landscape ? PAGE_H : PAGE_W;
+    var pageH = landscape ? PAGE_W : PAGE_H;
+    var usableW = pageW - MARGIN_MM*2;
+    var usableH = pageH - MARGIN_MM*2;
+    var g = gridFor(state.shape, state.gridMode);
+    var cols = g.cols, rows = g.rows;
+    var cellW = state.ticketW, cellH = state.ticketH;
+    var offX = (usableW - cols*cellW) / 2;
+    var offY = (usableH - rows*cellH) / 2;
+    return { landscape:landscape, pageW:pageW, pageH:pageH, cols:cols, rows:rows, cellW:cellW, cellH:cellH, offX:offX, offY:offY, rotate:false, count:cols*rows };
+  }
+
+  // 가로형 식권은 폭이 넓어서 고정 배율(3.4배)로는 편집 영역보다 커져 왼쪽으로 잘려
+  // 보였다 — 실제로 쓸 수 있는 폭에 맞춰 배율을 낮춰서 항상 전체가 한 화면에 보이게 한다.
+  var MAX_EDIT_ZOOM = 3.4, MIN_EDIT_ZOOM = 1.3;
+  var OUTER_PAD_PX = 36; // .canvas-outer's 18px padding on each side
+  function fitEditZoom(){
+    var outer = document.getElementById('canvasOuter');
+    var availW = (outer.clientWidth || 0) - OUTER_PAD_PX;
+    if(availW <= 0) return MAX_EDIT_ZOOM;
+    var fit = availW / (state.ticketW * PX_PER_MM);
+    return Math.max(MIN_EDIT_ZOOM, Math.min(MAX_EDIT_ZOOM, fit));
+  }
+
+  function renderEditCanvas(opts){
+    opts = opts || {};
+    var canvas = document.getElementById('ticketCanvas');
+    EDIT_ZOOM = fitEditZoom();
+    var scale = PX_PER_MM * EDIT_ZOOM;
+    canvas.style.width = (state.ticketW*scale) + 'px';
+    canvas.style.height = (state.ticketH*scale) + 'px';
+    canvas.style.background = state.bgColor || '#fff';
+    canvas.innerHTML = '';
+    var selectedEl = null;
+    state.elements.forEach(function(el, idx){
+      canvas.appendChild(buildElNode(el, {unit:'px', scale:scale, interactive:true}, idx+1));
+      if(el.id === state.selectedId) selectedEl = el;
+    });
+    if(selectedEl){
+      canvas.appendChild(buildSelectionOverlay(selectedEl, {unit:'px', scale:scale}));
+    }
+
+    document.getElementById('sizeNote').textContent =
+      '식권 크기 ' + state.ticketW.toFixed(1) + ' × ' + state.ticketH.toFixed(1) + ' mm · 여백 ' + MARGIN_MM + 'mm 기준';
+    document.getElementById('wVal').textContent = state.ticketW.toFixed(1) + 'mm';
+    document.getElementById('hVal').textContent = state.ticketH.toFixed(1) + 'mm';
+
+    var g = computeGrid(state.ticketW, state.ticketH);
+    document.getElementById('gridHint').textContent = 'A4에 ' + g.cols + '열 × ' + g.rows + '행 = 항상 20매';
+
+    // Rebuilding the props panel destroys and recreates its <input type="color">,
+    // which closes the browser's native color picker mid-pick. Skip that rebuild
+    // while the picker is still open (opts.skipProps) and only do it once it's done.
+    if(!opts.skipProps){ renderProps(); renderBgColorPicker(); }
+    renderA4Mini();
+  }
+
+  // Fill the available column width so the A4 sheet reads clearly instead of
+  // sitting in a small box — height then follows from the page's own portrait
+  // or landscape proportions rather than being capped independently.
+  function renderA4Mini(){
+    var L = pageLayout();
+    var names = getNames();
+    var wrap = document.getElementById('a4MiniWrap');
+    var boxW = wrap.clientWidth || 340;
+    // scale here is CSS px per mm, chosen so the page is exactly boxW wide (mini.style.width
+    // below is L.pageW*scale, i.e. must equal boxW). Dividing by PX_PER_MM too — as this used
+    // to — left the whole preview rendering at roughly 1/3.8 of the intended size.
+    var scale = boxW / L.pageW;
+    wrap.innerHTML = '';
+
+    document.getElementById('a4Heading').textContent =
+      names.length > 1 ? ('A4 미리보기 · ' + names.length + '명, 총 ' + names.length + '장') : 'A4 미리보기';
+
+    names.forEach(function(personName, pageIdx){
+      var block = document.createElement('div');
+      block.className = 'a4-mini-block';
+      if(names.length > 1 || personName){
+        var label = document.createElement('div');
+        label.className = 'a4-mini-label';
+        label.textContent = names.length > 1
+          ? ((pageIdx+1) + '/' + names.length + ' · ' + (personName || '이름 없음'))
+          : (personName || '이름');
+        block.appendChild(label);
+      }
+      var mini = document.createElement('div');
+      mini.className = 'a4-page-mini';
+      mini.style.width = (L.pageW*scale) + 'px';
+      mini.style.height = (L.pageH*scale) + 'px';
+
+      for(var r=0; r<L.rows; r++){
+        for(var c=0; c<L.cols; c++){
+          var n = r*L.cols + c + 1;
+          var leftMM = MARGIN_MM + L.offX + c*L.cellW;
+          var topMM = MARGIN_MM + L.offY + r*L.cellH;
+          var outer = document.createElement('div');
+          outer.className = 'mini-ticket';
+          outer.style.left = (leftMM*scale) + 'px';
+          outer.style.top = (topMM*scale) + 'px';
+          outer.style.width = (L.cellW*scale) + 'px';
+          outer.style.height = (L.cellH*scale) + 'px';
+          outer.style.background = state.bgColor || '#fff';
+          var inner = outer;
+          if(L.rotate){
+            inner = document.createElement('div');
+            inner.style.position = 'absolute';
+            inner.style.left = '50%'; inner.style.top = '50%';
+            inner.style.width = (state.ticketW*scale) + 'px';
+            inner.style.height = (state.ticketH*scale) + 'px';
+            inner.style.transform = 'translate(-50%,-50%) rotate(90deg)';
+            outer.appendChild(inner);
+          }
+          state.elements.forEach(function(el){
+            inner.appendChild(buildElNode(el, {unit:'px', scale:scale, interactive:false, number:n, name:personName}));
+          });
+          mini.appendChild(outer);
+        }
+      }
+      block.appendChild(mini);
+      wrap.appendChild(block);
+    });
+  }
+
+  // One physical A4 page for one person's 20 tickets, with `name` fixed for
+  // every ticket on it. Comma-separated names become one page each.
+  function buildOnePrintPage(L, personName, isLast){
+    var page = document.createElement('div');
+    page.style.position = 'relative';
+    page.style.width = L.pageW + 'mm';
+    page.style.height = L.pageH + 'mm';
+    page.style.background = '#fff';
+    if(!isLast) page.style.pageBreakAfter = 'always';
+
+    for(var r=0; r<L.rows; r++){
+      for(var c=0; c<L.cols; c++){
+        var n = r*L.cols + c + 1;
+        var leftMM = MARGIN_MM + L.offX + c*L.cellW;
+        var topMM = MARGIN_MM + L.offY + r*L.cellH;
+        var outer = document.createElement('div');
+        outer.style.position = 'absolute';
+        outer.style.left = leftMM + 'mm';
+        outer.style.top = topMM + 'mm';
+        outer.style.width = L.cellW + 'mm';
+        outer.style.height = L.cellH + 'mm';
+        outer.style.background = state.bgColor || '#fff';
+        // Cut guide — a real line printed at each ticket's edge (outline, so it
+        // doesn't add to the box's own size or shift anything inside it).
+        outer.style.outline = '0.15mm solid #999';
+        outer.style.outlineOffset = '-0.075mm';
+        var inner = outer;
+        if(L.rotate){
+          inner = document.createElement('div');
+          inner.style.position = 'absolute';
+          inner.style.left = '50%'; inner.style.top = '50%';
+          inner.style.width = state.ticketW + 'mm';
+          inner.style.height = state.ticketH + 'mm';
+          inner.style.transform = 'translate(-50%,-50%) rotate(90deg)';
+          outer.appendChild(inner);
+        }
+        state.elements.forEach(function(el){
+          inner.appendChild(buildElNode(el, {unit:'mm', interactive:false, number:n, name:personName}));
+        });
+        page.appendChild(outer);
+      }
+    }
+    return page;
+  }
+
+  // Artifacts render inside a sandboxed iframe, and window.print() on the
+  // iframe itself is silently blocked there — nothing happens when clicked.
+  // Opening the print page in a real top-level tab sidesteps that sandbox,
+  // so the browser's normal print / "Save as PDF" dialog actually appears.
+  var FONTS_LINK = '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Gaegu:wght@400;700&family=Black+Han+Sans&family=Jua&family=Do+Hyeon&family=Gowun+Dodum&family=Gamja+Flower&family=Song+Myung&display=swap">';
+  // Builds the shared page layout + one DOM page per name — used by both the
+  // print dialog and the direct PDF download so they always match exactly.
+  function buildPrintDoc(){
+    var L = pageLayout();
+    var names = getNames();
+    var pages = names.map(function(personName, i){
+      return buildOnePrintPage(L, personName, i === names.length - 1);
+    });
+    return { L: L, pages: pages, names: names };
+  }
+
+  function printTickets(){
+    var built = buildPrintDoc();
+    var pagesHTML = built.pages.map(function(p){ return p.outerHTML; }).join('');
+    // buildElNode positions every element with inline left/top/width/height, but that
+    // only takes effect on a div whose *position* itself is absolute — and that part
+    // (.el / .el-inner / .el-shape-circle / .el-img-placeholder, plus every --variable
+    // color they reference) lives only in this page's own <style>, not in the popup
+    // document below. Without it every element fell back to normal document flow and
+    // piled up at the top-left of its ticket — which is exactly the "위치가 다르다" bug.
+    // Copying this page's real stylesheet(s) over is what makes the print/PDF layout
+    // match the editor pixel-for-pixel instead of re-describing the rules by hand.
+    var appStyles = Array.from(document.querySelectorAll('style')).map(function(s){ return s.outerHTML; }).join('');
+    var doc = '<!doctype html><html data-theme="light"><head><meta charset="utf-8"><title>식권 인쇄</title>' + FONTS_LINK +
+      appStyles +
+      // Browsers strip background colors/images when printing unless explicitly
+      // told to keep them — without this, every ticket's 배경색 printed as blank
+      // white no matter what was chosen in the editor.
+      '<style>*{box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; color-adjust:exact;} html,body{margin:0;padding:0;background:#fff;} ' +
+      '@page{ size:A4 ' + (built.L.landscape ? 'landscape' : 'portrait') + '; margin:0; }</style></head><body>' +
+      pagesHTML + '</body></html>';
+
+    var win = window.open('', '_blank');
+    if(!win){
+      alert('팝업이 차단되어 인쇄 창을 열 수 없어요. 이 페이지의 팝업 차단을 해제한 뒤 다시 시도해주세요.');
+      return;
+    }
+    win.document.open();
+    win.document.write(doc);
+    win.document.close();
+    win.onload = function(){
+      setTimeout(function(){ win.focus(); win.print(); }, 350);
+    };
+  }
+
+  // ---------- PDF direct download (no print dialog) ----------
+  var LIB_CACHE = {};
+  function ensureLib(src, globalPath){
+    var check = function(){
+      return globalPath.split('.').reduce(function(o,k){ return o && o[k]; }, window);
+    };
+    if(check()) return Promise.resolve();
+    if(LIB_CACHE[src]) return LIB_CACHE[src];
+    LIB_CACHE[src] = new Promise(function(resolve, reject){
+      var s = document.createElement('script');
+      s.src = src;
+      s.onload = function(){ resolve(); };
+      s.onerror = function(){ reject(new Error('스크립트를 불러오지 못했어요: ' + src)); };
+      document.head.appendChild(s);
+    });
+    return LIB_CACHE[src];
+  }
+
+  function downloadPdf(){
+    var pdfBtn = document.getElementById('pdfBtn');
+    pdfBtn.disabled = true;
+    var origLabel = pdfBtn.textContent;
+    pdfBtn.textContent = 'PDF 생성 중…';
+
+    Promise.all([
+      ensureLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', 'html2canvas'),
+      ensureLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf.jsPDF')
+    ]).then(function(){
+      var built = buildPrintDoc();
+      var host = document.createElement('div');
+      // Rendered off-screen (not display:none — html2canvas needs real layout)
+      // in the SAME document so it inherits the editor's own loaded fonts/CSS.
+      host.style.position = 'fixed';
+      host.style.left = '-99999px';
+      host.style.top = '0';
+      host.style.background = '#fff';
+      document.body.appendChild(host);
+      built.pages.forEach(function(p){ host.appendChild(p); });
+
+      var orientation = built.L.landscape ? 'landscape' : 'portrait';
+      var pdf = new window.jspdf.jsPDF({ orientation: orientation, unit: 'mm', format: 'a4' });
+
+      var chain = Promise.resolve();
+      built.pages.forEach(function(page, i){
+        chain = chain.then(function(){
+          return window.html2canvas(page, { scale: 3, useCORS: true, backgroundColor: '#ffffff' });
+        }).then(function(canvas){
+          var imgData = canvas.toDataURL('image/jpeg', 0.95);
+          if(i > 0) pdf.addPage('a4', orientation);
+          pdf.addImage(imgData, 'JPEG', 0, 0, built.L.pageW, built.L.pageH);
+        });
+      });
+      return chain.then(function(){
+        document.body.removeChild(host);
+        pdf.save((state.data.dept || '식권') + '.pdf');
+      }).catch(function(err){
+        if(host.parentNode) document.body.removeChild(host);
+        throw err;
+      });
+    }).catch(function(err){
+      console.error(err);
+      alert('PDF 생성에 실패했어요. 인터넷 연결을 확인한 뒤 다시 시도해주세요.');
+    }).then(function(){
+      pdfBtn.disabled = false;
+      pdfBtn.textContent = origLabel;
+    });
+  }
+
+  // ---------- drag / resize ----------
+  var dragCtx = null;
+  function startDrag(ev, el){
+    ev.preventDefault();
+    pushUndo(); lastProppedId = el.id;
+    selectElement(el.id);
+    dragCtx = { id: el.id, mode:'move', startX: ev.clientX, startY: ev.clientY, origX: el.x, origY: el.y };
+    document.addEventListener('pointermove', onDragMove);
+    document.addEventListener('pointerup', onDragEnd);
+  }
+  function startResize(ev, el){
+    ev.preventDefault();
+    pushUndo(); lastProppedId = el.id;
+    selectElement(el.id);
+    dragCtx = { id: el.id, mode:'resize', startX: ev.clientX, startY: ev.clientY, origW: el.w, origH: el.h };
+    document.addEventListener('pointermove', onDragMove);
+    document.addEventListener('pointerup', onDragEnd);
+  }
+  function onDragMove(ev){
+    if(!dragCtx) return;
+    var scale = PX_PER_MM * EDIT_ZOOM;
+    var dxPx = ev.clientX - dragCtx.startX;
+    var dyPx = ev.clientY - dragCtx.startY;
+    var dxMM = dxPx / scale;
+    var dyMM = dyPx / scale;
+    var el = state.elements.find(function(e){ return e.id === dragCtx.id; });
+    if(!el) return;
+    if(dragCtx.mode === 'move'){
+      el.x = clamp(dragCtx.origX + dxMM, 0, state.ticketW - el.w);
+      el.y = clamp(dragCtx.origY + dyMM, 0, state.ticketH - el.h);
+    } else if(dragCtx.mode === 'resize'){
+      el.w = clamp(dragCtx.origW + dxMM, 4, state.ticketW - el.x);
+      el.h = clamp(dragCtx.origH + dyMM, 4, state.ticketH - el.y);
+    }
+    renderEditCanvas();
+  }
+  function onDragEnd(){
+    dragCtx = null;
+    document.removeEventListener('pointermove', onDragMove);
+    document.removeEventListener('pointerup', onDragEnd);
+  }
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+  // ---------- crop modal ----------
+  // Lets the user pick exactly which rectangle of the ORIGINAL image to keep —
+  // unlike the old pan/zoom crop, resizing the element's frame afterward never
+  // changes what's inside the crop, because the result is baked once into its
+  // own image (el.croppedSrc) at the source's full resolution.
+  var cropCtx = null; // { el, natW, natH, dispW, dispH }
+  var cropDrag = null; // { mode:'move'|'resize', corner, startX, startY, rect:{x,y,w,h} }
+  var CROP_STAGE_MAX = 480;
+
+  function currentCropRectPx(){
+    var r = document.getElementById('cropRect');
+    return { x: parseFloat(r.style.left), y: parseFloat(r.style.top), w: parseFloat(r.style.width), h: parseFloat(r.style.height) };
+  }
+  function setCropRectPx(rect){
+    var r = document.getElementById('cropRect');
+    r.style.left = rect.x + 'px'; r.style.top = rect.y + 'px';
+    r.style.width = rect.w + 'px'; r.style.height = rect.h + 'px';
+  }
+
+  function openCropModal(el){
+    var src = originalImageSrc(el);
+    if(!src) return;
+    var img = new Image();
+    img.onload = function(){
+      cropCtx = { el: el, natW: img.naturalWidth, natH: img.naturalHeight };
+      var scale = Math.min(CROP_STAGE_MAX / img.naturalWidth, CROP_STAGE_MAX / img.naturalHeight, 1);
+      cropCtx.dispW = Math.round(img.naturalWidth * scale);
+      cropCtx.dispH = Math.round(img.naturalHeight * scale);
+
+      var stage = document.getElementById('cropStage');
+      stage.style.width = cropCtx.dispW + 'px';
+      stage.style.height = cropCtx.dispH + 'px';
+      var cropImgEl = document.getElementById('cropImg');
+      cropImgEl.src = src;
+
+      // Start from the element's saved crop, if it has one; otherwise suggest
+      // a centered region matching the element box's own aspect ratio.
+      var rect;
+      if(el.cropRect){
+        rect = {
+          x: el.cropRect.x0 * cropCtx.dispW, y: el.cropRect.y0 * cropCtx.dispH,
+          w: (el.cropRect.x1 - el.cropRect.x0) * cropCtx.dispW, h: (el.cropRect.y1 - el.cropRect.y0) * cropCtx.dispH
+        };
+      } else {
+        var boxAR = el.w / el.h;
+        var stageAR = cropCtx.dispW / cropCtx.dispH;
+        var w, h;
+        if(boxAR > stageAR){ w = cropCtx.dispW; h = w / boxAR; } else { h = cropCtx.dispH; w = h * boxAR; }
+        w = Math.min(w, cropCtx.dispW); h = Math.min(h, cropCtx.dispH);
+        rect = { x: (cropCtx.dispW - w)/2, y: (cropCtx.dispH - h)/2, w: w, h: h };
+      }
+      setCropRectPx(rect);
+
+      document.getElementById('cropBackdrop').classList.add('open');
+    };
+    img.onerror = function(){ alert('이미지를 불러오지 못했어요.'); };
+    img.src = src;
+  }
+
+  function closeCropModal(){
+    document.getElementById('cropBackdrop').classList.remove('open');
+    cropCtx = null; cropDrag = null;
+  }
+
+  function applyCrop(){
+    if(!cropCtx) return;
+    var rect = currentCropRectPx();
+    var x0 = rect.x / cropCtx.dispW, y0 = rect.y / cropCtx.dispH;
+    var x1 = (rect.x + rect.w) / cropCtx.dispW, y1 = (rect.y + rect.h) / cropCtx.dispH;
+
+    var sx = x0 * cropCtx.natW, sy = y0 * cropCtx.natH;
+    var sw = (x1 - x0) * cropCtx.natW, sh = (y1 - y0) * cropCtx.natH;
+
+    var canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(sw));
+    canvas.height = Math.max(1, Math.round(sh));
+    var ctx = canvas.getContext('2d');
+    var img = document.getElementById('cropImg');
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+
+    pushUndo();
+    var el = cropCtx.el;
+    el.croppedSrc = canvas.toDataURL('image/png');
+    el.cropRect = { x0:x0, y0:y0, x1:x1, y1:y1 };
+    closeCropModal();
+    renderEditCanvas();
+  }
+
+  document.getElementById('cropCancelBtn').addEventListener('click', closeCropModal);
+  document.getElementById('cropApplyBtn').addEventListener('click', applyCrop);
+  document.getElementById('cropBackdrop').addEventListener('pointerdown', function(ev){
+    if(ev.target.id === 'cropBackdrop') closeCropModal();
+  });
+
+  document.getElementById('cropRect').addEventListener('pointerdown', function(ev){
+    if(ev.target.dataset && ev.target.dataset.corner) return; // handled below
+    ev.preventDefault(); ev.stopPropagation();
+    cropDrag = { mode:'move', startX: ev.clientX, startY: ev.clientY, rect: currentCropRectPx() };
+    document.addEventListener('pointermove', onCropDragMove);
+    document.addEventListener('pointerup', onCropDragEnd);
+  });
+  Array.from(document.querySelectorAll('.crop-handle')).forEach(function(h){
+    h.addEventListener('pointerdown', function(ev){
+      ev.preventDefault(); ev.stopPropagation();
+      cropDrag = { mode:'resize', corner: h.dataset.corner, startX: ev.clientX, startY: ev.clientY, rect: currentCropRectPx() };
+      document.addEventListener('pointermove', onCropDragMove);
+      document.addEventListener('pointerup', onCropDragEnd);
+    });
+  });
+  function onCropDragMove(ev){
+    if(!cropDrag || !cropCtx) return;
+    var dx = ev.clientX - cropDrag.startX, dy = ev.clientY - cropDrag.startY;
+    var r0 = cropDrag.rect, W = cropCtx.dispW, H = cropCtx.dispH;
+    var MIN = 24;
+    if(cropDrag.mode === 'move'){
+      setCropRectPx({
+        x: clamp(r0.x + dx, 0, W - r0.w), y: clamp(r0.y + dy, 0, H - r0.h),
+        w: r0.w, h: r0.h
+      });
+    } else {
+      var x0 = r0.x, y0 = r0.y, x1 = r0.x + r0.w, y1 = r0.y + r0.h;
+      var c = cropDrag.corner;
+      if(c === 'nw'){ x0 = clamp(r0.x + dx, 0, x1 - MIN); y0 = clamp(r0.y + dy, 0, y1 - MIN); }
+      else if(c === 'ne'){ x1 = clamp(r0.x + r0.w + dx, x0 + MIN, W); y0 = clamp(r0.y + dy, 0, y1 - MIN); }
+      else if(c === 'sw'){ x0 = clamp(r0.x + dx, 0, x1 - MIN); y1 = clamp(r0.y + r0.h + dy, y0 + MIN, H); }
+      else if(c === 'se'){ x1 = clamp(r0.x + r0.w + dx, x0 + MIN, W); y1 = clamp(r0.y + r0.h + dy, y0 + MIN, H); }
+      setCropRectPx({ x:x0, y:y0, w:x1-x0, h:y1-y0 });
+    }
+  }
+  function onCropDragEnd(){
+    cropDrag = null;
+    document.removeEventListener('pointermove', onCropDragMove);
+    document.removeEventListener('pointerup', onCropDragEnd);
+  }
+
+  // ---------- undo (Ctrl+Z) ----------
+  var undoStack = [];
+  var MAX_UNDO = 60;
+  var lastProppedId = null;
+  function snapshotState(){
+    return {
+      shape: state.shape, gridMode: state.gridMode, ticketW: state.ticketW, ticketH: state.ticketH,
+      bgColor: state.bgColor, selectedId: state.selectedId,
+      elements: JSON.parse(JSON.stringify(state.elements))
+    };
+  }
+  function pushUndo(){
+    undoStack.push(snapshotState());
+    if(undoStack.length > MAX_UNDO) undoStack.shift();
+  }
+  function undo(){
+    if(!undoStack.length) return;
+    var prev = undoStack.pop();
+    state.shape = prev.shape; state.gridMode = prev.gridMode; state.ticketW = prev.ticketW; state.ticketH = prev.ticketH;
+    state.bgColor = prev.bgColor; state.selectedId = prev.selectedId; state.elements = prev.elements;
+    var max = maxSizeFor(state.shape, state.gridMode);
+    wSlider.min = 10; wSlider.max = max.w; wSlider.value = state.ticketW;
+    hSlider.min = 10; hSlider.max = max.h; hSlider.value = state.ticketH;
+    Array.from(document.getElementById('shapePills').children).forEach(function(p){ p.classList.toggle('active', p.dataset.shape === state.shape); });
+    Array.from(document.getElementById('gridModePills').children).forEach(function(p){ p.classList.toggle('active', p.dataset.grid === state.gridMode); });
+    lastProppedId = null;
+    renderEditCanvas();
+  }
+
+  function selectElement(id){
+    state.selectedId = id; renderEditCanvas();
+  }
+  function deleteElement(id){
+    pushUndo();
+    state.elements = state.elements.filter(function(e){ return e.id !== id; });
+    state.selectedId = null; renderEditCanvas();
+  }
+  function bringToFront(id){
+    var idx = state.elements.findIndex(function(e){ return e.id === id; });
+    if(idx < 0 || idx === state.elements.length-1) return;
+    pushUndo();
+    var el = state.elements.splice(idx, 1)[0];
+    state.elements.push(el);
+    renderEditCanvas();
+  }
+  function sendToBack(id){
+    var idx = state.elements.findIndex(function(e){ return e.id === id; });
+    if(idx <= 0) return;
+    pushUndo();
+    var el = state.elements.splice(idx, 1)[0];
+    state.elements.unshift(el);
+    renderEditCanvas();
+  }
+
+  document.getElementById('ticketCanvas').addEventListener('click', function(){
+    state.selectedId = null; renderEditCanvas();
+  });
+  document.getElementById('ticketCanvas').addEventListener('contextmenu', function(ev){
+    if(ev.target.id === 'ticketCanvas') ev.preventDefault();
+  });
+
+  // ---------- context menu ----------
+  var ctxMenu = document.getElementById('ctxMenu');
+  function openContextMenu(x, y){
+    ctxMenu.style.display = 'block';
+    var mw = ctxMenu.offsetWidth || 150, mh = ctxMenu.offsetHeight || 44;
+    ctxMenu.style.left = Math.min(x, window.innerWidth - mw - 8) + 'px';
+    ctxMenu.style.top = Math.min(y, window.innerHeight - mh - 8) + 'px';
+  }
+  function closeContextMenu(){ ctxMenu.style.display = 'none'; }
+  document.getElementById('ctxDelete').addEventListener('click', function(){
+    if(state.selectedId) deleteElement(state.selectedId);
+    closeContextMenu();
+  });
+  document.addEventListener('click', function(ev){
+    if(!ctxMenu.contains(ev.target)) closeContextMenu();
+  });
+  document.addEventListener('scroll', closeContextMenu, true);
+
+  // ---------- keyboard delete / undo ----------
+  document.addEventListener('keydown', function(ev){
+    var tag = (document.activeElement && document.activeElement.tagName) || '';
+    var inField = (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT');
+    if((ev.ctrlKey || ev.metaKey) && !ev.shiftKey && ev.key.toLowerCase() === 'z'){
+      // While a text field has focus, leave Ctrl+Z to the browser's own field-level
+      // undo — only handle it as "undo my last canvas edit" when nothing is focused.
+      if(inField) return;
+      ev.preventDefault();
+      undo();
+      return;
+    }
+    if(ev.key !== 'Delete' && ev.key !== 'Backspace') return;
+    if(inField) return;
+    if(!state.selectedId) return;
+    ev.preventDefault();
+    deleteElement(state.selectedId);
+    closeContextMenu();
+  });
+
+  // ---------- properties panel ----------
+  function renderProps(){
+    var empty = document.getElementById('propsEmpty');
+    var body = document.getElementById('propsBody');
+    var el = state.elements.find(function(e){ return e.id === state.selectedId; });
+    if(!el){ empty.style.display='block'; body.style.display='none'; lastProppedId = null; return; }
+    // Snapshot once per "editing session" of an element — right when its panel opens —
+    // rather than on every keystroke, so Ctrl+Z steps back one edit-session at a time
+    // instead of one character at a time.
+    if(lastProppedId !== el.id){ pushUndo(); lastProppedId = el.id; }
+    empty.style.display='none'; body.style.display='block';
+    body.innerHTML = '';
+
+    function row(labelText, inputEl){
+      var f = document.createElement('div'); f.className = 'field';
+      var l = document.createElement('label'); l.textContent = labelText;
+      f.appendChild(l); f.appendChild(inputEl); body.appendChild(f); return f;
+    }
+
+    var kindLabel = document.createElement('p');
+    kindLabel.className = 'hint'; kindLabel.style.marginTop = '0';
+    kindLabel.textContent = el.dataKey ? ('데이터 요소 · ' + el.dataKey) : (el.type === 'text' ? '자유 텍스트' : el.type === 'shape' ? '도형' : '이미지');
+    body.appendChild(kindLabel);
+
+    // size (mm) — every element type
+    var sizeRow = document.createElement('div');
+    sizeRow.className = 'field-row';
+    var wWrap = document.createElement('div'); wWrap.className='field';
+    var wLbl = document.createElement('label'); wLbl.textContent='가로(mm)'; wWrap.appendChild(wLbl);
+    var wInp = document.createElement('input'); wInp.type='number'; wInp.step='0.5'; wInp.value = el.w.toFixed(1);
+    wInp.addEventListener('input', function(){ el.w = clamp(Number(wInp.value)||el.w, 4, state.ticketW - el.x); renderEditCanvas({skipProps:true}); });
+    wInp.addEventListener('change', function(){ renderEditCanvas(); });
+    wWrap.appendChild(wInp); sizeRow.appendChild(wWrap);
+    var hWrap = document.createElement('div'); hWrap.className='field';
+    var hLbl = document.createElement('label'); hLbl.textContent='세로(mm)'; hWrap.appendChild(hLbl);
+    var hInp = document.createElement('input'); hInp.type='number'; hInp.step='0.5'; hInp.value = el.h.toFixed(1);
+    hInp.addEventListener('input', function(){ el.h = clamp(Number(hInp.value)||el.h, 4, state.ticketH - el.y); renderEditCanvas({skipProps:true}); });
+    hInp.addEventListener('change', function(){ renderEditCanvas(); });
+    hWrap.appendChild(hInp); sizeRow.appendChild(hWrap);
+    body.appendChild(sizeRow);
+
+    if(el.type === 'text'){
+      if(!el.dataKey){
+        var ta = document.createElement('input');
+        ta.type = 'text'; ta.value = el.text || '';
+        // Rebuilding the props panel on every keystroke would steal focus back to
+        // <body> mid-edit — then Backspace (no longer inside a text field) would hit
+        // the delete-selected-element shortcut instead of erasing a character.
+        ta.addEventListener('input', function(){ el.text = ta.value; renderEditCanvas({skipProps:true}); });
+        ta.addEventListener('change', function(){ renderEditCanvas(); });
+        row('내용', ta);
+      }
+      var fontSel = document.createElement('select');
+      Object.keys(FONT_STACK).filter(function(k){return k!=='IBM Plex Mono';}).forEach(function(k){
+        var o = document.createElement('option'); o.value=k;
+        o.textContent = FONT_LABELS[k] || k;
+        o.style.fontFamily = FONT_STACK[k];
+        if(el.fontFamily===k) o.selected = true;
+        fontSel.appendChild(o);
+      });
+      fontSel.style.fontFamily = FONT_STACK[el.fontFamily] || FONT_STACK['Noto Sans KR'];
+      fontSel.addEventListener('change', function(){ el.fontFamily = fontSel.value; renderEditCanvas(); });
+      row('글꼴', fontSel);
+
+      var colorPicker = buildColorPicker(el.color, function(hex, o){ el.color = hex; renderEditCanvas(o && o.live ? {skipProps:true} : undefined); });
+      row('색상', colorPicker);
+
+      var alignSel = document.createElement('select');
+      ['left','center','right'].forEach(function(a){
+        var o = document.createElement('option'); o.value=a; o.textContent = a==='left'?'왼쪽':a==='center'?'가운데':'오른쪽';
+        if(el.align===a) o.selected=true;
+        alignSel.appendChild(o);
+      });
+      alignSel.addEventListener('change', function(){ el.align = alignSel.value; renderEditCanvas(); });
+      row('정렬', alignSel);
+
+      var boldWrap = document.createElement('label');
+      boldWrap.style.display='flex'; boldWrap.style.alignItems='center'; boldWrap.style.gap='6px'; boldWrap.style.fontSize='12.5px'; boldWrap.style.color='var(--text-secondary)';
+      var boldChk = document.createElement('input');
+      boldChk.type='checkbox'; boldChk.checked = !!el.bold;
+      boldChk.addEventListener('change', function(){ el.bold = boldChk.checked; renderEditCanvas(); });
+      boldWrap.appendChild(boldChk); boldWrap.appendChild(document.createTextNode('굵게'));
+      body.appendChild(boldWrap);
+    }
+
+    if(el.type === 'shape'){
+      var shapeSel = document.createElement('select');
+      [['rect','사각형'],['circle','원']].forEach(function(p){
+        var o=document.createElement('option'); o.value=p[0]; o.textContent=p[1];
+        if(el.shapeKind===p[0]) o.selected=true;
+        shapeSel.appendChild(o);
+      });
+      shapeSel.addEventListener('change', function(){ el.shapeKind = shapeSel.value; renderEditCanvas(); });
+      row('모양', shapeSel);
+
+      var strokePicker = buildColorPicker(el.stroke, function(hex, o){ el.stroke = hex; renderEditCanvas(o && o.live ? {skipProps:true} : undefined); });
+      row('테두리 색', strokePicker);
+
+      var fillPicker = buildColorPicker(el.fill, function(hex, o){ el.fill = hex; renderEditCanvas(o && o.live ? {skipProps:true} : undefined); }, {allowTransparent:true});
+      row('채우기 색', fillPicker);
+    }
+
+    if(el.type === 'image' && el.dataKey !== 'character'){
+      var imgInp = document.createElement('input');
+      imgInp.type='file'; imgInp.accept='image/*';
+      imgInp.addEventListener('change', function(){
+        var file = imgInp.files[0]; if(!file) return;
+        var reader = new FileReader();
+        reader.onload = function(){
+          el.src = reader.result;
+          // A crop baked from the old image no longer means anything on the new one.
+          delete el.croppedSrc; delete el.cropRect;
+          renderEditCanvas();
+        };
+        reader.readAsDataURL(file);
+      });
+      row('이미지 교체', imgInp);
+    }
+
+    if(el.type === 'image'){
+      var cropRow = document.createElement('button');
+      cropRow.className = 'btn small'; cropRow.style.width = '100%';
+      cropRow.textContent = el.croppedSrc ? '다시 자르기' : '이미지 자르기';
+      cropRow.addEventListener('click', function(){ openCropModal(el); });
+      body.appendChild(cropRow);
+      if(el.croppedSrc){
+        var resetCrop = document.createElement('button');
+        resetCrop.className = 'btn small'; resetCrop.style.width = '100%'; resetCrop.style.marginTop = '6px';
+        resetCrop.textContent = '자르기 초기화 (전체 보기)';
+        resetCrop.addEventListener('click', function(){
+          pushUndo();
+          delete el.croppedSrc; delete el.cropRect;
+          renderEditCanvas();
+        });
+        body.appendChild(resetCrop);
+      }
+    }
+
+    var delBtn = document.createElement('button');
+    delBtn.className = 'btn small'; delBtn.style.marginTop='6px'; delBtn.style.width='100%'; delBtn.textContent = '요소 삭제';
+    delBtn.addEventListener('click', function(){ deleteElement(el.id); });
+    body.appendChild(delBtn);
+  }
+
+  function toHex(v){
+    if(!v || v.indexOf('var(')===0) return '#1d1d1f';
+    return v;
+  }
+
+  var COLOR_PRESETS = ['#1D1D1F','#FFFFFF','#6E6E73','#0071E3','#FF3B30','#34C759','#FF9500','#AF52DE'];
+  // Preset swatches apply instantly on click; only the "+" swatch opens the
+  // native picker, so browsing colors never pops a dialog by accident.
+  function buildColorPicker(value, onChange, opts){
+    opts = opts || {};
+    var wrap = document.createElement('div');
+    wrap.className = 'swatch-row';
+    var current = (value || '').toLowerCase();
+
+    if(opts.allowTransparent){
+      var t = document.createElement('button');
+      t.type = 'button'; t.title = '투명';
+      t.className = 'swatch swatch-transparent' + (current === 'transparent' ? ' selected' : '');
+      t.addEventListener('click', function(){ onChange('transparent'); });
+      wrap.appendChild(t);
+    }
+
+    COLOR_PRESETS.forEach(function(hex){
+      var sw = document.createElement('button');
+      sw.type = 'button'; sw.title = hex;
+      sw.className = 'swatch' + (current === hex.toLowerCase() ? ' selected' : '');
+      sw.style.background = hex;
+      sw.addEventListener('click', function(){ onChange(hex); });
+      wrap.appendChild(sw);
+    });
+
+    var isCustom = current && current !== 'transparent' && COLOR_PRESETS.indexOf(value.toUpperCase()) === -1 && value.indexOf('var(') !== 0;
+    var more = document.createElement('label');
+    more.className = 'swatch swatch-more' + (isCustom ? ' selected' : '');
+    more.title = '더 많은 색';
+    more.style.background = isCustom ? toHex(value) : '';
+    if(!isCustom){
+      var plus = document.createElement('span'); plus.textContent = '+';
+      more.appendChild(plus);
+    }
+    var moreInput = document.createElement('input');
+    moreInput.type = 'color';
+    moreInput.value = toHex(value);
+    // 'input' fires continuously while the native picker stays open (e.g. every
+    // click on its hue bar) — apply it live but keep the picker on-screen.
+    // 'change' fires once it closes, when it's safe to fully rebuild the panel.
+    moreInput.addEventListener('input', function(){ onChange(moreInput.value, {live:true}); });
+    moreInput.addEventListener('change', function(){ onChange(moreInput.value, {live:false}); });
+    more.appendChild(moreInput);
+    wrap.appendChild(more);
+
+    return wrap;
+  }
+
+  // Ticket background color — a top-level control (not tied to any single element),
+  // so it's rebuilt alongside the props panel and skipped during a live native-picker
+  // drag the same way, to avoid the picker closing itself mid-pick.
+  function renderBgColorPicker(){
+    var wrap = document.getElementById('bgColorPicker');
+    wrap.innerHTML = '';
+    wrap.appendChild(buildColorPicker(state.bgColor, function(hex, o){
+      var isLive = o && o.live;
+      if(!isLive) pushUndo();
+      state.bgColor = hex;
+      renderEditCanvas(isLive ? {skipProps:true} : undefined);
+    }));
+  }
+
+  // ---------- data form wiring ----------
+  document.getElementById('f-dept').addEventListener('input', function(e){ state.data.dept = e.target.value; renderEditCanvas(); });
+  document.getElementById('f-phone').addEventListener('input', function(e){ state.data.phone = e.target.value; renderEditCanvas(); });
+  document.getElementById('f-name').addEventListener('input', function(e){ state.data.name = e.target.value; renderEditCanvas(); });
+  var markIn = document.getElementById('f-mark-in');
+  var markSign = document.getElementById('f-mark-sign');
+  markIn.addEventListener('change', function(){
+    if(markIn.checked){ markSign.checked = false; state.data.nameMark = '인'; }
+    else if(!markSign.checked){ state.data.nameMark = null; }
+    renderEditCanvas();
+  });
+  markSign.addEventListener('change', function(){
+    if(markSign.checked){ markIn.checked = false; state.data.nameMark = '서명'; }
+    else if(!markIn.checked){ state.data.nameMark = null; }
+    renderEditCanvas();
+  });
+  document.getElementById('f-yearmonth').addEventListener('input', function(e){ state.data.yearMonth = e.target.value; renderEditCanvas(); });
+  document.getElementById('f-amount').addEventListener('input', function(e){ state.data.amount = Number(e.target.value)||0; renderEditCanvas(); });
+  document.getElementById('f-yearmonth').value = state.data.yearMonth;
+  document.getElementById('f-amount').value = state.data.amount;
+
+  document.getElementById('f-character').addEventListener('change', function(e){
+    var file = e.target.files[0]; if(!file) return;
+    document.getElementById('f-character-name').value = file.name;
+    var reader = new FileReader();
+    reader.onload = function(){ state.data.characterSrc = reader.result; renderEditCanvas(); };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('titlePills').addEventListener('click', function(e){
+    var t = e.target.closest('.seg'); if(!t) return;
+    state.data.title = t.dataset.title;
+    Array.from(document.getElementById('titlePills').children).forEach(function(p){ p.classList.toggle('active', p===t); });
+    renderEditCanvas();
+  });
+  Array.from(document.getElementById('titlePills').children)[0].classList.add('active');
+
+  document.getElementById('numPrefixPills').addEventListener('click', function(e){
+    var t = e.target.closest('.seg'); if(!t) return;
+    state.data.numberShowPrefix = t.dataset.val === 'on';
+    Array.from(document.getElementById('numPrefixPills').children).forEach(function(p){ p.classList.toggle('active', p===t); });
+    renderEditCanvas();
+  });
+  Array.from(document.getElementById('numPrefixPills').children)[0].classList.add('active');
+
+  document.getElementById('numPadPills').addEventListener('click', function(e){
+    var t = e.target.closest('.seg'); if(!t) return;
+    state.data.numberPad = t.dataset.val === 'pad';
+    Array.from(document.getElementById('numPadPills').children).forEach(function(p){ p.classList.toggle('active', p===t); });
+    renderEditCanvas();
+  });
+  Array.from(document.getElementById('numPadPills').children)[0].classList.add('active');
+
+  // ---------- ticket size (sliders + presets) ----------
+  // Cols x rows per shape is fixed (see GRID_COLS_ROWS), so the slider's max is exactly
+  // the edge-to-edge size — going past it would mean fewer than 20 fit, which never happens.
+  var wSlider = document.getElementById('wSlider');
+  var hSlider = document.getElementById('hSlider');
+
+  function applyTicketSize(newW, newH, opts){
+    var scaleX = newW / state.ticketW;
+    var scaleY = newH / state.ticketH;
+    state.elements.forEach(function(el){
+      el.x *= scaleX; el.w *= scaleX; el.y *= scaleY; el.h *= scaleY;
+    });
+    state.ticketW = newW; state.ticketH = newH;
+    wSlider.value = newW; hSlider.value = newH;
+    renderEditCanvas(opts);
+  }
+  function setWidth(newW, opts){
+    var max = maxSizeFor(state.shape, state.gridMode);
+    newW = clamp(newW, 10, max.w);
+    var newH = state.shape === 'square' ? clamp(newW, 10, max.h) : state.ticketH;
+    applyTicketSize(newW, newH, opts);
+  }
+  function setHeight(newH, opts){
+    var max = maxSizeFor(state.shape, state.gridMode);
+    newH = clamp(newH, 10, max.h);
+    var newW = state.shape === 'square' ? clamp(newH, 10, max.w) : state.ticketW;
+    applyTicketSize(newW, newH, opts);
+  }
+
+  // Rebuilding the whole properties panel (renderProps, inside a plain renderEditCanvas())
+  // on every single 'input' tick while dragging is unnecessary work per frame and is the
+  // same class of bug that used to steal focus from other live-editing controls — so drag
+  // ticks stay skipProps, and only the final 'change' (drag release) does a full rebuild.
+  var sizeDragStarted = false;
+  function onSizeDragStart(){ if(!sizeDragStarted){ pushUndo(); sizeDragStarted = true; } }
+  wSlider.addEventListener('pointerdown', onSizeDragStart);
+  hSlider.addEventListener('pointerdown', onSizeDragStart);
+  wSlider.addEventListener('input', function(){ setWidth(Number(wSlider.value), {skipProps:true}); });
+  hSlider.addEventListener('input', function(){ setHeight(Number(hSlider.value), {skipProps:true}); });
+  wSlider.addEventListener('change', function(){ setWidth(Number(wSlider.value)); sizeDragStarted = false; });
+  hSlider.addEventListener('change', function(){ setHeight(Number(hSlider.value)); sizeDragStarted = false; });
+
+  document.getElementById('shapePills').addEventListener('click', function(e){
+    var t = e.target.closest('.seg'); if(!t) return;
+    var shape = t.dataset.shape;
+    pushUndo();
+    state.shape = shape;
+    state.gridMode = defaultGridMode(shape);
+    Array.from(document.getElementById('shapePills').children).forEach(function(p){ p.classList.toggle('active', p===t); });
+    Array.from(document.getElementById('gridModePills').children).forEach(function(p){ p.classList.toggle('active', p.dataset.grid === state.gridMode); });
+    var max = maxSizeFor(shape, state.gridMode);
+    wSlider.min = 10; wSlider.max = max.w;
+    hSlider.min = 10; hSlider.max = max.h;
+    applyTicketSize(max.w, max.h);
+    // A straight proportional scale can leave a text box far wider than the text
+    // it holds (or clipping it) once the ticket's own aspect ratio changes — snap
+    // every text box back to hug its own content in the new frame.
+    state.elements.forEach(refitTextBoxWidth);
+    renderEditCanvas();
+  });
+  Array.from(document.getElementById('shapePills').children)[0].classList.add('active');
+
+  document.getElementById('gridModePills').addEventListener('click', function(e){
+    var t = e.target.closest('.seg'); if(!t) return;
+    pushUndo();
+    state.gridMode = t.dataset.grid;
+    Array.from(document.getElementById('gridModePills').children).forEach(function(p){ p.classList.toggle('active', p===t); });
+    var max = maxSizeFor(state.shape, state.gridMode);
+    wSlider.min = 10; wSlider.max = max.w;
+    hSlider.min = 10; hSlider.max = max.h;
+    applyTicketSize(max.w, max.h);
+    state.elements.forEach(refitTextBoxWidth);
+    renderEditCanvas();
+  });
+  Array.from(document.getElementById('gridModePills').children).forEach(function(p){ p.classList.toggle('active', p.dataset.grid === state.gridMode); });
+
+  document.getElementById('fontPills').addEventListener('click', function(e){
+    var t = e.target.closest('.seg'); if(!t) return;
+    var font = t.dataset.font;
+    state.elements.forEach(function(el){ if(el.type==='text' && el.dataKey) el.fontFamily = font; });
+    renderEditCanvas();
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', function(){
+    pushUndo();
+    state.elements = toMM(defaultTemplate(), state.ticketW, state.ticketH);
+    state.selectedId = null; renderEditCanvas();
+  });
+
+  // New text/image elements always land at the same spot near the ticket's top-left —
+  // select them and scroll both the canvas and the page itself so that spot is actually
+  // on screen, instead of leaving the user to go hunt for what they just added.
+  function focusNewElement(id){
+    state.selectedId = id;
+    renderEditCanvas();
+    var node = document.querySelector('#ticketCanvas .el[data-id="' + id + '"]');
+    if(node && node.scrollIntoView) node.scrollIntoView({ behavior:'smooth', block:'center', inline:'center' });
+    var outer = document.getElementById('canvasOuter');
+    if(outer && outer.scrollIntoView) outer.scrollIntoView({ behavior:'smooth', block:'center' });
+  }
+
+  document.getElementById('addTextBtn').addEventListener('click', function(){
+    pushUndo();
+    var newEl = { id:uid(), dataKey:null, type:'text', x:state.ticketW*0.1, y:state.ticketH*0.4, w:state.ticketW*0.5, h:state.ticketH*0.12, bold:false, align:'left', fontFamily:'Noto Sans KR', color:'var(--text)', text:'텍스트' };
+    state.elements.push(newEl);
+    focusNewElement(newEl.id);
+  });
+  document.getElementById('addImageBtn').addEventListener('click', function(){ document.getElementById('addImageInput').click(); });
+  document.getElementById('addImageInput').addEventListener('change', function(e){
+    var file = e.target.files[0];
+    // Reset the input's value up front — otherwise picking the exact same file a
+    // second time in a row fires no 'change' event at all (the browser sees no
+    // value change), which read as "이미지 요소가 안 들어가는" from the outside.
+    e.target.value = '';
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      pushUndo();
+      var newEl = { id:uid(), dataKey:null, type:'image', x:state.ticketW*0.1, y:state.ticketH*0.1, w:state.ticketW*0.3, h:state.ticketH*0.3, src:reader.result };
+      state.elements.push(newEl);
+      focusNewElement(newEl.id);
+    };
+    reader.onerror = function(){ alert('이미지를 불러오지 못했어요. 다른 파일로 다시 시도해주세요.'); };
+    reader.readAsDataURL(file);
+  });
+
+  // ---------- templates (localStorage) ----------
+  var TPL_PREFIX = 'meal-ticket-tpl-';
+  function refreshTplList(){
+    var sel = document.getElementById('tplSelect');
+    sel.innerHTML = '<option value="">저장된 부서 템플릿…</option>';
+    try{
+      for(var i=0;i<localStorage.length;i++){
+        var k = localStorage.key(i);
+        if(k && k.indexOf(TPL_PREFIX)===0){
+          var name = k.slice(TPL_PREFIX.length);
+          var o = document.createElement('option'); o.value=name; o.textContent=name;
+          sel.appendChild(o);
+        }
+      }
+    }catch(err){}
+  }
+  document.getElementById('saveTplBtn').addEventListener('click', function(){
+    if(!state.data.dept){ alert('먼저 부서명을 입력해주세요.'); return; }
+    try{
+      localStorage.setItem(TPL_PREFIX+state.data.dept, JSON.stringify({
+        shape: state.shape, ticketW: state.ticketW, ticketH: state.ticketH, elements: state.elements, bgColor: state.bgColor, gridMode: state.gridMode
+      }));
+      refreshTplList();
+      alert('"' + state.data.dept + '" 템플릿을 저장했어요. (이 브라우저에만 저장됩니다)');
+    }catch(err){ alert('저장에 실패했어요.'); }
+  });
+  document.getElementById('loadTplBtn').addEventListener('click', function(){
+    var name = document.getElementById('tplSelect').value;
+    if(!name){ alert('불러올 템플릿을 선택해주세요.'); return; }
+    try{
+      var raw = localStorage.getItem(TPL_PREFIX+name);
+      if(!raw){ alert('템플릿을 찾을 수 없어요.'); return; }
+      var tpl = JSON.parse(raw);
+      pushUndo();
+      state.shape = tpl.shape; state.ticketW = tpl.ticketW; state.ticketH = tpl.ticketH;
+      state.elements = tpl.elements; state.selectedId = null;
+      state.bgColor = tpl.bgColor || '#FFFFFF';
+      state.gridMode = tpl.gridMode || defaultGridMode(state.shape);
+      state.data.dept = name;
+      document.getElementById('f-dept').value = name;
+      var max = maxSizeFor(state.shape, state.gridMode);
+      wSlider.min = 10; wSlider.max = max.w; wSlider.value = state.ticketW;
+      hSlider.min = 10; hSlider.max = max.h; hSlider.value = state.ticketH;
+      Array.from(document.getElementById('shapePills').children).forEach(function(p){ p.classList.toggle('active', p.dataset.shape===state.shape); });
+      Array.from(document.getElementById('gridModePills').children).forEach(function(p){ p.classList.toggle('active', p.dataset.grid===state.gridMode); });
+      renderEditCanvas();
+    }catch(err){ alert('불러오기에 실패했어요.'); }
+  });
+
+  // ---------- print / pdf ----------
+  document.getElementById('printBtn').addEventListener('click', printTickets);
+  document.getElementById('pdfBtn').addEventListener('click', downloadPdf);
+
+  // ---------- init ----------
+  (function(){
+    var max = maxSizeFor(state.shape, state.gridMode);
+    wSlider.min = 10; wSlider.max = max.w; wSlider.value = state.ticketW;
+    hSlider.min = 10; hSlider.max = max.h; hSlider.value = state.ticketH;
+  })();
+  renderEditCanvas();
+  refreshTplList();
+
+})();
+</script>
+
