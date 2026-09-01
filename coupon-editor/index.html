@@ -352,7 +352,7 @@
             </label>
             <label class="radio-label">
               <input type="radio" name="pageLayoutMode" value="byNumber">
-              번호별로 모아서 <span class="radio-sub">(겹쳐 자르기용 · 1·11번, 2·12번…끼리 한 장)</span>
+              번호별로 모아서 <span class="radio-sub">(겹쳐 자르기용 · 5명 이하는 1·6·11·16번씩, 6명 이상은 1·11번씩 한 장)</span>
             </label>
           </div>
           <p class="hint" id="pageLayoutModeHint"></p>
@@ -1007,21 +1007,32 @@
     return out;
   }
 
+  // How many people share one page in 'byNumber' mode, and therefore how many
+  // different ticket numbers fit onto that same page — smaller teams get more
+  // numbers per page instead of leaving most of the sheet blank. With the
+  // standard 20-cell grid: teams of 5 or fewer get groups of 5 people × 4
+  // numbers per page (1·6·11·16 together); teams of 6+ get groups of 10 people
+  // × 2 numbers per page (1·11 together), same as before.
+  function byNumberGroupSize(cellCount, peopleCount){
+    var groupSize = peopleCount <= 5 ? Math.round(cellCount / 4) : Math.round(cellCount / 2);
+    return Math.max(1, Math.min(cellCount, groupSize));
+  }
+
   // Figures out which (person, ticket number) — if any — belongs in grid cell
   // n (1-based, row-major) of one page, for whichever pageLayoutMode is active.
   // 'byPerson': every cell on the page is the same person, numbered 1..cellCount.
-  // 'byNumber': the page covers exactly ONE number-pair (band, band+half) — the
-  // first half of the cells are that group's people at `band`, the second half
-  // the same people at `band+half`. Printing every band for a group, then
-  // stacking those pages and cutting through one grid cell, pulls out one
-  // person's full 1..cellCount run in two matching piles (their `band` pile and
-  // their `band+half` pile) — no manual sorting needed afterward.
+  // 'byNumber': the page is split into numbersPerPage equal segments of
+  // groupSize cells each — segment k holds that group's people at number
+  // `band + k*groupSize`. Printing every band for a group, then stacking those
+  // pages and cutting through one grid cell, pulls out one person's full
+  // 1..cellCount run in numbersPerPage matching piles — no manual sorting
+  // needed afterward.
   function cellAssignment(spec, n){
     if(spec.mode === 'byNumber'){
-      var half = spec.half;
-      var slotIdx, number;
-      if(n <= half){ slotIdx = n - 1; number = spec.band; }
-      else { slotIdx = n - half - 1; number = spec.band + half; }
+      var groupSize = spec.groupSize;
+      var segment = Math.floor((n - 1) / groupSize);
+      var slotIdx = (n - 1) % groupSize;
+      var number = spec.band + segment * groupSize;
       var person = spec.group[slotIdx];
       return person !== undefined ? { person: person, number: number } : null;
     }
@@ -1036,15 +1047,16 @@
     var names = getNames();
     var cellCount = L.cols * L.rows;
     if(state.pageLayoutMode === 'byNumber'){
-      var half = Math.max(1, Math.floor(cellCount / 2));
-      var groups = chunk(names, half);
+      var groupSize = byNumberGroupSize(cellCount, names.length);
+      var numbersPerPage = Math.max(1, Math.floor(cellCount / groupSize));
+      var groups = chunk(names, groupSize);
       var specs = [];
       groups.forEach(function(group, groupIdx){
-        for(var band = 1; band <= half; band++){
-          specs.push({ mode:'byNumber', half:half, band:band, group:group, groupIdx:groupIdx, groupCount:groups.length });
+        for(var band = 1; band <= groupSize; band++){
+          specs.push({ mode:'byNumber', groupSize:groupSize, numbersPerPage:numbersPerPage, band:band, group:group, groupIdx:groupIdx, groupCount:groups.length });
         }
       });
-      return { L:L, specs:specs, names:names, half:half };
+      return { L:L, specs:specs, names:names, groupSize:groupSize, numbersPerPage:numbersPerPage };
     }
     var specs = names.map(function(personName){ return { mode:'byPerson', personName:personName }; });
     return { L:L, specs:specs, names:names };
@@ -1150,7 +1162,9 @@
       block.className = 'a4-mini-block';
       var labelText;
       if(spec.mode === 'byNumber'){
-        labelText = (pageIdx+1) + '/' + total + ' · ' + spec.band + '번 · ' + (spec.band + spec.half) + '번';
+        var numbers = [];
+        for(var k=0; k<spec.numbersPerPage; k++) numbers.push(spec.band + k*spec.groupSize);
+        labelText = (pageIdx+1) + '/' + total + ' · ' + numbers.join('·') + '번';
         if(spec.groupCount > 1) labelText += ' (그룹 ' + (spec.groupIdx+1) + '/' + spec.groupCount + ')';
       } else if(total > 1 || spec.personName){
         labelText = total > 1 ? ((pageIdx+1) + '/' + total + ' · ' + (spec.personName || '이름 없음')) : (spec.personName || '이름');
@@ -1169,7 +1183,7 @@
     if(hintEl){
       var cellCount = L.cols * L.rows;
       if(state.pageLayoutMode === 'byNumber'){
-        hintEl.textContent = '한 사람당 ' + cellCount + '장(1~' + cellCount + '번) 기준, 최대 ' + plan.half + '명씩 묶어 총 ' + total + '장을 인쇄해요. 인쇄된 순서 그대로 겹쳐서 자르면, 같은 위치에서 나온 조각들이 한 사람의 전체 번호가 됩니다.';
+        hintEl.textContent = '한 사람당 ' + cellCount + '장(1~' + cellCount + '번) 기준, 최대 ' + plan.groupSize + '명씩 묶어 한 장에 번호 ' + plan.numbersPerPage + '개씩 담아 총 ' + total + '장을 인쇄해요. 인쇄된 순서 그대로 겹쳐서 자르면, 같은 위치에서 나온 조각들이 한 사람의 전체 번호가 됩니다.';
       } else {
         hintEl.textContent = '사람마다 한 장씩, 그 사람의 1~' + cellCount + '번이 모두 담긴 페이지가 나와요.';
       }
