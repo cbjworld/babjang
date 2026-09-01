@@ -144,6 +144,8 @@
   }
   .radio-label input{ accent-color:var(--accent); width:15px; height:15px; cursor:pointer; margin-top:1px; flex-shrink:0; }
   .radio-sub{ color:var(--text-secondary); font-size:11.5px; }
+  .radio-label.disabled{ opacity:0.45; cursor:not-allowed; }
+  .radio-label.disabled input{ cursor:not-allowed; }
 
   .swatch-row{ display:flex; gap:7px; flex-wrap:wrap; }
   .swatch{
@@ -347,12 +349,12 @@
           <label>여러 명 인쇄 방식</label>
           <div class="radio-group" id="pageLayoutModeRadios">
             <label class="radio-label">
-              <input type="radio" name="pageLayoutMode" value="byPerson" checked>
+              <input type="radio" name="pageLayoutMode" value="byPerson" id="pageLayoutByPersonRadio" checked>
               사람별로 한 장씩 <span class="radio-sub">(기존 방식 · 1명당 1~20번 전부)</span>
             </label>
-            <label class="radio-label">
-              <input type="radio" name="pageLayoutMode" value="byNumber">
-              번호별로 모아서 <span class="radio-sub">(겹쳐 자르기용 · 5명 이하는 1·6·11·16번씩, 6명 이상은 1·11번씩 한 장)</span>
+            <label class="radio-label" id="pageLayoutByNumberLabel">
+              <input type="radio" name="pageLayoutMode" value="byNumber" id="pageLayoutByNumberRadio">
+              번호별로 모아서 <span class="radio-sub" id="pageLayoutByNumberSub">(겹쳐 자르기용 · 10명 이하일 때만 · 5명 이하는 1·6·11·16번씩, 6명 이상은 1·11번씩 한 장)</span>
             </label>
           </div>
           <p class="hint" id="pageLayoutModeHint"></p>
@@ -1137,7 +1139,28 @@
     return page;
   }
 
+  // '번호별로 모아서' only makes sense up to 10 people (beyond that, more than
+  // one page per number-band would be needed anyway, defeating the point of a
+  // single guillotine cut). Past 10, disable the option and fall back to
+  // 사람별로 한 장씩 automatically — called on every render so it always tracks
+  // the current 팀원명 list, however it changed (typing, template load, undo).
+  function enforcePageLayoutModeAvailability(){
+    var count = (state.data.name || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean).length;
+    var overLimit = count > 10;
+    var radio = document.getElementById('pageLayoutByNumberRadio');
+    var label = document.getElementById('pageLayoutByNumberLabel');
+    if(radio) radio.disabled = overLimit;
+    if(label) label.classList.toggle('disabled', overLimit);
+    if(overLimit && state.pageLayoutMode === 'byNumber'){
+      state.pageLayoutMode = 'byPerson';
+      var byPersonRadio = document.getElementById('pageLayoutByPersonRadio');
+      if(byPersonRadio) byPersonRadio.checked = true;
+    }
+    return { overLimit: overLimit, count: count };
+  }
+
   function renderA4Mini(){
+    var avail = enforcePageLayoutModeAvailability();
     var plan = buildPagePlan();
     var L = plan.L;
     var wrap = document.getElementById('a4MiniWrap');
@@ -1182,7 +1205,9 @@
     var hintEl = document.getElementById('pageLayoutModeHint');
     if(hintEl){
       var cellCount = L.cols * L.rows;
-      if(state.pageLayoutMode === 'byNumber'){
+      if(avail.overLimit){
+        hintEl.textContent = '현재 ' + avail.count + '명 — 10명을 넘으면 번호별로 모아서는 쓸 수 없어서, 사람별로 한 장씩으로 자동 전환했어요.';
+      } else if(state.pageLayoutMode === 'byNumber'){
         hintEl.textContent = '한 사람당 ' + cellCount + '장(1~' + cellCount + '번) 기준, 최대 ' + plan.groupSize + '명씩 묶어 한 장에 번호 ' + plan.numbersPerPage + '개씩 담아 총 ' + total + '장을 인쇄해요. 인쇄된 순서 그대로 겹쳐서 자르면, 같은 위치에서 나온 조각들이 한 사람의 전체 번호가 됩니다.';
       } else {
         hintEl.textContent = '사람마다 한 장씩, 그 사람의 1~' + cellCount + '번이 모두 담긴 페이지가 나와요.';
