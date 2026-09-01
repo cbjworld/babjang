@@ -61,6 +61,7 @@
     font-size:26px; margin:2px 0 0; font-weight:700; letter-spacing:-0.015em;
   }
   .tpl-controls{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .tpl-divider{ width:1px; height:20px; background:var(--border); margin:0 2px; }
   .tpl-controls select{
     border:1px solid var(--border); background:var(--surface); color:var(--text);
     border-radius:10px; padding:8px 12px; font-size:12.5px;
@@ -301,6 +302,10 @@
       <select id="tplSelect"><option value="">저장된 부서 템플릿…</option></select>
       <button class="btn small" id="loadTplBtn">불러오기</button>
       <button class="btn small primary" id="saveTplBtn">템플릿 저장</button>
+      <span class="tpl-divider"></span>
+      <button class="btn small" id="exportTplBtn" title="템플릿을 파일로 저장해서 다른 사람에게 전달할 수 있어요">파일로 내보내기</button>
+      <button class="btn small" id="importTplBtn" title="다른 사람이 보낸 템플릿 파일을 불러와요">파일 불러오기</button>
+      <input type="file" id="importTplInput" accept=".json,application/json" style="display:none;">
     </div>
   </div>
 
@@ -319,7 +324,7 @@
           <label>부서 전화번호</label>
           <div class="phone-input">
             <span class="prefix">02-2199-</span>
-            <input type="text" id="f-phone" placeholder="8668" maxlength="6">
+            <input type="text" id="f-phone" placeholder="1234" maxlength="6">
           </div>
         </div>
         <div class="field">
@@ -650,6 +655,36 @@
     return arr.length ? arr : [''];
   }
 
+  // Opens a native file picker for one image element and applies whatever's
+  // chosen — the character slot writes to state.data.characterSrc (and syncs
+  // its filename field), any other image element writes straight to el.src.
+  // Used by the "이미지 교체" control in the props panel and by double-clicking
+  // an empty (or filled) image frame directly on the canvas.
+  function pickImageForElement(el){
+    var inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*';
+    inp.addEventListener('change', function(){
+      var file = inp.files[0]; if(!file) return;
+      var reader = new FileReader();
+      reader.onload = function(){
+        pushUndo();
+        if(el.dataKey === 'character'){
+          state.data.characterSrc = reader.result;
+          var nameField = document.getElementById('f-character-name');
+          if(nameField) nameField.value = file.name;
+        } else {
+          el.src = reader.result;
+        }
+        // A crop baked from the previous image no longer means anything here.
+        delete el.croppedSrc; delete el.cropRect;
+        renderEditCanvas();
+      };
+      reader.onerror = function(){ alert('이미지를 불러오지 못했어요. 다른 파일로 다시 시도해주세요.'); };
+      reader.readAsDataURL(file);
+    });
+    inp.click();
+  }
+
   // The untouched, full source image behind an element — before any crop is
   // baked on top of it. Character-slot images live in state.data.characterSrc;
   // freely-added images carry their own src.
@@ -701,6 +736,10 @@
   }
 
   // ---------- rendering ----------
+  // Tracks the last image-element click for the hand-rolled double-click check
+  // in buildElNode below (see the comment there for why native dblclick isn't used).
+  var lastImgClick = { id: null, time: 0 };
+
   function buildElNode(el, opts, zIndex){
     var node = document.createElement('div');
     node.className = 'el';
@@ -774,14 +813,33 @@
 
     if(opts.interactive){
       if(el.id === state.selectedId) node.classList.add('selected');
-      node.addEventListener('pointerdown', function(ev){ startDrag(ev, el); });
+      // Selecting an element re-renders the whole canvas immediately (startDrag
+      // below calls selectElement synchronously on pointerdown, before mouseup),
+      // which swaps this node out for a freshly-built one — so the browser's
+      // 'click' event, which requires mousedown/mouseup to land on the same
+      // surviving node, and 'dblclick' built on top of it, are NOT reliable here.
+      // Double-clicks are instead detected on 'pointerdown' itself, by hand:
+      // two pointerdowns on the same element id within a short window.
+      node.addEventListener('pointerdown', function(ev){
+        if(el.type === 'image'){
+          var now = Date.now();
+          if(lastImgClick.id === el.id && (now - lastImgClick.time) < 450){
+            lastImgClick = { id:null, time:0 };
+            ev.preventDefault(); ev.stopPropagation();
+            selectElement(el.id);
+            pickImageForElement(el);
+            return;
+          }
+          lastImgClick = { id: el.id, time: now };
+        }
+        startDrag(ev, el);
+      });
       node.addEventListener('click', function(ev){ ev.stopPropagation(); selectElement(el.id); });
       node.addEventListener('contextmenu', function(ev){
         ev.preventDefault(); ev.stopPropagation();
         selectElement(el.id);
         openContextMenu(ev.clientX, ev.clientY);
       });
-
     }
     return node;
   }
@@ -1811,8 +1869,58 @@
     reader.readAsDataURL(file);
   });
 
-  // ---------- templates (localStorage) ----------
+  // ---------- templates (localStorage + shareable file) ----------
   var TPL_PREFIX = 'meal-ticket-tpl-';
+
+  // Everything needed to fully reproduce this ticket elsewhere — layout, size,
+  // colors AND the data-entry fields (dept/phone/names/amount/character image…)
+  // so a template file handed to someone else opens ready to keep editing.
+  function tplPayload(){
+    return {
+      __type: 'meal-ticket-template', __version: 1,
+      shape: state.shape, ticketW: state.ticketW, ticketH: state.ticketH,
+      bgColor: state.bgColor, gridMode: state.gridMode,
+      elements: state.elements,
+      data: state.data
+    };
+  }
+
+  // Pushes every form control (dept/phone/name/marks/year-month/amount/title/
+  // number style) to match state.data — used after loading a template so the
+  // left-panel fields don't keep showing the previous session's values.
+  function syncFormFromState(){
+    document.getElementById('f-dept').value = state.data.dept || '';
+    document.getElementById('f-phone').value = state.data.phone || '';
+    document.getElementById('f-name').value = state.data.name || '';
+    document.getElementById('f-mark-in').checked = state.data.nameMark === '인';
+    document.getElementById('f-mark-sign').checked = state.data.nameMark === '서명';
+    document.getElementById('f-yearmonth').value = state.data.yearMonth || '';
+    document.getElementById('f-amount').value = state.data.amount != null ? state.data.amount : '';
+    document.getElementById('f-character-name').value = state.data.characterSrc ? '이미지 있음 (템플릿에서 불러옴)' : '';
+    Array.from(document.getElementById('titlePills').children).forEach(function(p){ p.classList.toggle('active', p.dataset.title === state.data.title); });
+    Array.from(document.getElementById('numPrefixPills').children).forEach(function(p){ p.classList.toggle('active', p.dataset.val === (state.data.numberShowPrefix ? 'on' : 'off')); });
+    Array.from(document.getElementById('numPadPills').children).forEach(function(p){ p.classList.toggle('active', p.dataset.val === (state.data.numberPad ? 'pad' : 'plain')); });
+  }
+
+  function applyTplPayload(tpl){
+    pushUndo();
+    state.shape = tpl.shape || state.shape;
+    state.ticketW = tpl.ticketW || state.ticketW;
+    state.ticketH = tpl.ticketH || state.ticketH;
+    state.elements = tpl.elements || state.elements;
+    state.selectedId = null;
+    state.bgColor = tpl.bgColor || '#FFFFFF';
+    state.gridMode = tpl.gridMode || defaultGridMode(state.shape);
+    if(tpl.data) state.data = Object.assign({}, state.data, tpl.data);
+    syncFormFromState();
+    var max = maxSizeFor(state.shape, state.gridMode);
+    wSlider.min = 10; wSlider.max = max.w; wSlider.value = state.ticketW;
+    hSlider.min = 10; hSlider.max = max.h; hSlider.value = state.ticketH;
+    Array.from(document.getElementById('shapePills').children).forEach(function(p){ p.classList.toggle('active', p.dataset.shape===state.shape); });
+    Array.from(document.getElementById('gridModePills').children).forEach(function(p){ p.classList.toggle('active', p.dataset.grid===state.gridMode); });
+    renderEditCanvas();
+  }
+
   function refreshTplList(){
     var sel = document.getElementById('tplSelect');
     sel.innerHTML = '<option value="">저장된 부서 템플릿…</option>';
@@ -1830,9 +1938,7 @@
   document.getElementById('saveTplBtn').addEventListener('click', function(){
     if(!state.data.dept){ alert('먼저 부서명을 입력해주세요.'); return; }
     try{
-      localStorage.setItem(TPL_PREFIX+state.data.dept, JSON.stringify({
-        shape: state.shape, ticketW: state.ticketW, ticketH: state.ticketH, elements: state.elements, bgColor: state.bgColor, gridMode: state.gridMode
-      }));
+      localStorage.setItem(TPL_PREFIX+state.data.dept, JSON.stringify(tplPayload()));
       refreshTplList();
       alert('"' + state.data.dept + '" 템플릿을 저장했어요. (이 브라우저에만 저장됩니다)');
     }catch(err){ alert('저장에 실패했어요.'); }
@@ -1843,21 +1949,46 @@
     try{
       var raw = localStorage.getItem(TPL_PREFIX+name);
       if(!raw){ alert('템플릿을 찾을 수 없어요.'); return; }
-      var tpl = JSON.parse(raw);
-      pushUndo();
-      state.shape = tpl.shape; state.ticketW = tpl.ticketW; state.ticketH = tpl.ticketH;
-      state.elements = tpl.elements; state.selectedId = null;
-      state.bgColor = tpl.bgColor || '#FFFFFF';
-      state.gridMode = tpl.gridMode || defaultGridMode(state.shape);
-      state.data.dept = name;
-      document.getElementById('f-dept').value = name;
-      var max = maxSizeFor(state.shape, state.gridMode);
-      wSlider.min = 10; wSlider.max = max.w; wSlider.value = state.ticketW;
-      hSlider.min = 10; hSlider.max = max.h; hSlider.value = state.ticketH;
-      Array.from(document.getElementById('shapePills').children).forEach(function(p){ p.classList.toggle('active', p.dataset.shape===state.shape); });
-      Array.from(document.getElementById('gridModePills').children).forEach(function(p){ p.classList.toggle('active', p.dataset.grid===state.gridMode); });
-      renderEditCanvas();
+      applyTplPayload(JSON.parse(raw));
     }catch(err){ alert('불러오기에 실패했어요.'); }
+  });
+
+  // Shareable template FILE — save the current design as a .json file to send
+  // to someone else, and load one they sent back, so the same ticket can be
+  // handed off and kept editing on a completely different computer/browser
+  // (localStorage templates above never leave this one browser).
+  document.getElementById('exportTplBtn').addEventListener('click', function(){
+    try{
+      var json = JSON.stringify(tplPayload(), null, 2);
+      var blob = new Blob([json], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      var fname = (state.data.dept || '식권템플릿').replace(/[\\/:*?"<>|]/g, '_');
+      a.href = url; a.download = fname + '.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    }catch(err){ alert('파일로 내보내는 데 실패했어요.'); }
+  });
+  document.getElementById('importTplBtn').addEventListener('click', function(){
+    document.getElementById('importTplInput').click();
+  });
+  document.getElementById('importTplInput').addEventListener('change', function(e){
+    var file = e.target.files[0];
+    e.target.value = '';
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var tpl = JSON.parse(reader.result);
+        if(!tpl || !tpl.elements){ alert('올바른 템플릿 파일이 아니에요.'); return; }
+        applyTplPayload(tpl);
+        alert('템플릿을 불러왔어요. 이어서 편집할 수 있어요.');
+      }catch(err){ alert('템플릿 파일을 읽지 못했어요. 파일이 손상되었을 수 있어요.'); }
+    };
+    reader.onerror = function(){ alert('파일을 읽지 못했어요.'); };
+    reader.readAsText(file);
   });
 
   // ---------- print / pdf ----------
@@ -1875,4 +2006,3 @@
 
 })();
 </script>
-
