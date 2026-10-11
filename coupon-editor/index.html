@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>식권 디자이너</title>
 <style>
   :root{
@@ -301,17 +306,20 @@
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Gaegu:wght@400;700&family=Black+Han+Sans&family=Jua&family=Do+Hyeon&family=Gowun+Dodum&family=Gamja+Flower&family=Song+Myung&display=swap">
 
+<link rel="stylesheet" href="studio.css">
+</head>
+<body>
 <div class="app">
 
   <div class="topbar">
     <div class="brandline">
-      <div class="kicker">식권제작기 · 편집기</div>
-      <h1>식권 디자이너</h1>
+      <a class="kicker" href="/">BABJANG <span>/ DESIGN STUDIO</span></a>
+      <h1><span class="brand-mark" aria-hidden="true">✳</span> 식권 디자이너<span class="edition">STUDIO 01</span></h1>
     </div>
-    <div class="tpl-controls">
-      <select id="tplSelect"><option value="">저장된 부서 템플릿…</option></select>
+    <div class="tpl-controls" aria-label="템플릿 관리">
+      <select id="tplSelect" aria-label="저장된 부서 템플릿"><option value="">저장된 부서 템플릿…</option></select>
       <button class="btn small" id="loadTplBtn">불러오기</button>
-      <button class="btn small primary" id="saveTplBtn">템플릿 저장</button>
+      <button class="btn small" id="saveTplBtn">템플릿 저장</button>
       <span class="tpl-divider"></span>
       <button class="btn small" id="exportTplBtn" title="템플릿을 파일로 저장해서 다른 사람에게 전달할 수 있어요">파일로 내보내기</button>
       <button class="btn small" id="importTplBtn" title="다른 사람이 보낸 템플릿 파일을 불러와요">파일 불러오기</button>
@@ -319,26 +327,31 @@
     </div>
   </div>
 
+  <div class="studio-intro"><div><span class="eyebrow">YOUR TEAM, YOUR TICKET.</span><p>우리 팀의 식권을, 우리답게.</p></div><div class="intro-note"><span class="status-dot"></span> 정보 입력부터 인쇄까지, 한 화면에서</div></div>
   <div class="layout">
 
     <!-- LEFT -->
     <div class="left-col">
+      <div class="settings-tabs" role="tablist" aria-label="식권 설정">
+        <button id="infoTab" role="tab" aria-selected="true" aria-controls="infoSettings" tabindex="0">01 <span>기본 정보</span></button>
+        <button id="designTab" role="tab" aria-selected="false" aria-controls="designSettings" tabindex="-1">02 <span>디자인</span></button>
+      </div><div id="infoSettings" role="tabpanel" aria-labelledby="infoTab">
 
       <div class="panel">
-        <h2>부서 정보</h2>
+        <h2>부서 정보 <span class="panel-caption">TICKET DETAILS</span></h2>
         <div class="field">
-          <label>부서명</label>
+          <label for="f-dept">부서명</label>
           <input type="text" id="f-dept" placeholder="예) 한남동 행정민원팀">
         </div>
         <div class="field">
-          <label>부서 전화번호</label>
+          <label for="f-phone">부서 전화번호</label>
           <div class="phone-input">
             <span class="prefix">02-2199-</span>
             <input type="text" id="f-phone" placeholder="1234" maxlength="6">
           </div>
         </div>
         <div class="field">
-          <label>팀원명</label>
+          <label for="f-name">팀원명</label>
           <input type="text" id="f-name" placeholder="예) 최병주, 최병순 (여러 명은 콤마로 구분)" style="margin-bottom:8px;">
           <div style="display:flex; gap:16px;">
             <label class="checkbox-label"><input type="checkbox" id="f-mark-in">(인) 표시</label>
@@ -361,16 +374,16 @@
         </div>
         <div class="field-row">
           <div class="field">
-            <label>년월</label>
+            <label for="f-yearmonth">년월</label>
             <input type="month" id="f-yearmonth">
           </div>
           <div class="field">
-            <label>금액</label>
+            <label for="f-amount">금액</label>
             <input type="number" id="f-amount" step="500">
           </div>
         </div>
         <div class="field">
-          <label>부서 캐릭터 이미지</label>
+          <label for="f-character">부서 캐릭터 이미지</label>
           <input type="text" id="f-character-name" disabled placeholder="파일을 선택하세요" style="margin-bottom:6px;">
           <input type="file" id="f-character" accept="image/*">
         </div>
@@ -400,8 +413,9 @@
         </div>
       </div>
 
+      </div><div id="designSettings" role="tabpanel" aria-labelledby="designTab" hidden>
       <div class="panel">
-        <h2>식권 크기</h2>
+        <h2>식권 크기 <span class="panel-caption">FORMAT</span></h2>
         <div class="segmented" id="shapePills">
           <span class="seg" data-shape="vertical">세로형</span>
           <span class="seg" data-shape="horizontal">가로형</span>
@@ -415,11 +429,11 @@
           </div>
         </div>
         <div class="field" style="margin-top:14px;">
-          <div class="row-label"><label style="margin-bottom:0;">가로 길이</label><span class="val" id="wVal">50.0mm</span></div>
+          <div class="row-label"><label for="wSlider" style="margin-bottom:0;">가로 길이</label><span class="val" id="wVal">50.0mm</span></div>
           <input type="range" id="wSlider" min="25" max="140" step="0.5">
         </div>
         <div class="field">
-          <div class="row-label"><label style="margin-bottom:0;">세로 길이</label><span class="val" id="hVal">57.4mm</span></div>
+          <div class="row-label"><label for="hSlider" style="margin-bottom:0;">세로 길이</label><span class="val" id="hVal">57.4mm</span></div>
           <input type="range" id="hSlider" min="25" max="160" step="0.5">
         </div>
         <p class="hint" id="gridHint"></p>
@@ -430,12 +444,6 @@
       </div>
 
       <div class="panel">
-        <h2>요소 추가</h2>
-        <div class="toolbar-row">
-          <button class="btn small" id="addTextBtn">＋ 텍스트</button>
-          <button class="btn small" id="addImageBtn">＋ 이미지</button>
-          <input type="file" id="addImageInput" accept="image/*" style="display:none;">
-        </div>
         <h2 style="margin-top:4px;">빠른 글꼴 적용</h2>
         <div class="segmented wrap" id="fontPills">
           <span class="seg" data-font="Noto Sans KR" style="font-family:'Noto Sans KR',sans-serif;">고딕</span>
@@ -452,32 +460,41 @@
         <button class="btn subtle small" id="resetBtn" style="margin-top:8px;">배치 초기화</button>
       </div>
 
-    </div>
+    </div></div>
 
     <!-- CENTER -->
     <div class="canvas-wrap">
+      <div class="workspace-toolbar">
+        <div><span class="eyebrow">LIVE CANVAS</span><h2>식권 편집</h2></div>
+        <div class="toolbar-row">
+          <button class="btn small" id="addTextBtn">＋ 텍스트</button>
+          <button class="btn small" id="addImageBtn">＋ 이미지</button>
+          <input type="file" id="addImageInput" accept="image/*" style="display:none;">
+        </div>
+      </div>
+      <div class="canvas-meta"><span><span class="status-dot"></span> 실시간 미리보기</span><span id="zoomNote"></span></div>
       <div class="canvas-outer" id="canvasOuter">
         <div class="ticket-canvas" id="ticketCanvas"></div>
       </div>
-      <div class="size-note" id="sizeNote"></div>
+      <div class="canvas-footer"><div class="size-note" id="sizeNote"></div><span class="canvas-shortcut"><kbd>Ctrl</kbd> + <kbd>Z</kbd> 되돌리기</span></div>
+      <p class="workspace-hint">요소를 클릭해 편집하고, 드래그해 원하는 위치에 놓으세요.</p>
     </div>
 
     <!-- RIGHT -->
     <div class="right-col">
+      <div class="output-actions"><span class="eyebrow">READY TO PRINT</span><div class="output-buttons">
+        <button class="btn primary" id="pdfBtn">PDF로 저장 <span aria-hidden="true">↗</span></button>
+        <button class="btn" id="printBtn">인쇄</button></div><p>실제 인쇄 크기 · A4 한 장에 식권 20매</p>
+      </div>
       <div class="panel" id="propsPanel">
-        <h2>속성</h2>
+        <h2>선택한 요소 <span class="panel-caption">PROPERTIES</span></h2>
         <div class="props-empty" id="propsEmpty">캔버스에서 요소를 클릭하면<br>여기서 크기·글꼴·색을 바꿀 수 있어요.</div>
         <div id="propsBody" style="display:none;"></div>
       </div>
 
-      <div class="panel">
+      <div class="panel preview-panel">
         <h2 id="a4Heading">A4 미리보기</h2>
         <div class="a4-mini-wrap" id="a4MiniWrap"></div>
-      </div>
-
-      <div style="display:flex; gap:8px;">
-        <button class="btn primary" id="pdfBtn" style="flex:1;">PDF로 저장</button>
-        <button class="btn" id="printBtn" style="flex:1;">인쇄</button>
       </div>
     </div>
 
@@ -488,6 +505,7 @@
 <div class="context-menu" id="ctxMenu">
   <div class="item danger" id="ctxDelete"><span>요소 삭제</span><span class="kbd">Delete</span></div>
 </div>
+<div id="studioNotice" class="studio-notice" role="status" aria-live="polite" hidden></div>
 
 <div class="crop-backdrop" id="cropBackdrop">
   <div class="crop-modal">
@@ -957,20 +975,22 @@
 
   // 가로형 식권은 폭이 넓어서 고정 배율(3.4배)로는 편집 영역보다 커져 왼쪽으로 잘려
   // 보였다 — 실제로 쓸 수 있는 폭에 맞춰 배율을 낮춰서 항상 전체가 한 화면에 보이게 한다.
-  var MAX_EDIT_ZOOM = 3.4, MIN_EDIT_ZOOM = 1.3;
+  var MAX_EDIT_ZOOM = 3.4;
   var OUTER_PAD_PX = 36; // .canvas-outer's 18px padding on each side
   function fitEditZoom(){
     var outer = document.getElementById('canvasOuter');
     var availW = (outer.clientWidth || 0) - OUTER_PAD_PX;
     if(availW <= 0) return MAX_EDIT_ZOOM;
-    var fit = availW / (state.ticketW * PX_PER_MM);
-    return Math.max(MIN_EDIT_ZOOM, Math.min(MAX_EDIT_ZOOM, fit));
+    var availH = outer.clientHeight - OUTER_PAD_PX;
+    var fit = Math.min(availW / (state.ticketW * PX_PER_MM), availH / (state.ticketH * PX_PER_MM));
+    return Math.max(0.1, Math.min(MAX_EDIT_ZOOM, fit));
   }
 
   function renderEditCanvas(opts){
     opts = opts || {};
     var canvas = document.getElementById('ticketCanvas');
     EDIT_ZOOM = fitEditZoom();
+    document.getElementById('zoomNote').textContent = Math.round(EDIT_ZOOM * 100) + '% · 화면에 맞춤';
     var scale = PX_PER_MM * EDIT_ZOOM;
     canvas.style.width = (state.ticketW*scale) + 'px';
     canvas.style.height = (state.ticketH*scale) + 'px';
@@ -1164,7 +1184,8 @@
     var plan = buildPagePlan();
     var L = plan.L;
     var wrap = document.getElementById('a4MiniWrap');
-    var boxW = wrap.clientWidth || 340;
+    var wrapStyle = getComputedStyle(wrap);
+    var boxW = (wrap.clientWidth - parseFloat(wrapStyle.paddingLeft) - parseFloat(wrapStyle.paddingRight)) || 340;
     // scale here is CSS px per mm, chosen so the page is exactly boxW wide (mini.style.width
     // below is L.pageW*scale, i.e. must equal boxW). Dividing by PX_PER_MM too — as this used
     // to — left the whole preview rendering at roughly 1/3.8 of the intended size.
@@ -2079,7 +2100,7 @@
     try{
       localStorage.setItem(TPL_PREFIX+state.data.dept, JSON.stringify(tplPayload()));
       refreshTplList();
-      alert('"' + state.data.dept + '" 템플릿을 저장했어요. (이 브라우저에만 저장됩니다)');
+      showStudioNotice('"' + state.data.dept + '" 템플릿을 이 브라우저에 저장했어요.');
     }catch(err){ alert('저장에 실패했어요.'); }
   });
   document.getElementById('loadTplBtn').addEventListener('click', function(){
@@ -2134,6 +2155,46 @@
   document.getElementById('printBtn').addEventListener('click', printTickets);
   document.getElementById('pdfBtn').addEventListener('click', downloadPdf);
 
+  // Studio navigation changes only the controls, never the ticket data.
+  var noticeTimer;
+  function showStudioNotice(message){
+    var notice = document.getElementById('studioNotice');
+    notice.textContent = message; notice.hidden = false;
+    clearTimeout(noticeTimer);
+    noticeTimer = setTimeout(function(){ notice.hidden = true; }, 5000);
+  }
+  var tabs = Array.from(document.querySelectorAll('.settings-tabs [role="tab"]'));
+  function activateTab(tab){
+    tabs.forEach(function(t){
+      var active = t === tab;
+      t.setAttribute('aria-selected', String(active)); t.tabIndex = active ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !active;
+    });
+  }
+  tabs.forEach(function(t, idx){
+    t.addEventListener('click', function(){ activateTab(t); });
+    t.addEventListener('keydown', function(e){
+      if(['ArrowLeft','ArrowRight','Home','End'].indexOf(e.key) < 0) return;
+      e.preventDefault();
+      var next = e.key === 'Home' ? tabs[0] : e.key === 'End' ? tabs[tabs.length-1] : tabs[(idx+1)%tabs.length];
+      activateTab(next); next.focus();
+    });
+  });
+  document.querySelectorAll('.segmented .seg').forEach(function(seg){
+    seg.setAttribute('role', 'button'); seg.tabIndex = 0;
+    seg.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); seg.click(); }
+    });
+  });
+  // Input changes rebuild the canvas; resize does so only when dimensions change.
+  if(window.ResizeObserver){
+    var lastCanvasSize = '';
+    new ResizeObserver(function(entries){
+      var r = entries[0].contentRect, key = r.width + ':' + r.height;
+      if(key !== lastCanvasSize){ lastCanvasSize = key; renderEditCanvas(); }
+    }).observe(document.getElementById('canvasOuter'));
+  } else { window.addEventListener('resize', function(){ renderEditCanvas(); }); }
+
   // ---------- init ----------
   (function(){
     var max = maxSizeFor(state.shape, state.gridMode);
@@ -2145,3 +2206,6 @@
 
 })();
 </script>
+
+</body>
+</html>
